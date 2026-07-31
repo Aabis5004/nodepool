@@ -1,10 +1,1 @@
-Integrate Privy embedded wallets into the frontend. Privy App ID: cms9a0vfy00dq0cl2355bvcjr
-
-What to do:
-1. Add Privy JS SDK via CDN script tag
-2. Replace the current Connect Wallet button with two options: "Sign in with Email" (Privy) and "Connect Wallet" (MetaMask)
-3. When user signs in with Privy, use their embedded wallet to interact with the contract
-4. Keep MetaMask as a fallback option
-5. Show the logged-in user email or wallet address in the header
-6. Add a logout button when connected
-7. Make sure all contract interactions work with both Privy wallet and MetaMask wallet
+Fix the Privy SDK loading issue. The console shows "Privy SDK is still loading" when user clicks Send Code. The SDK loads async from CDN and is not ready when the user interacts. Fix: disable the Sign in with Email button until the SDK is fully initialized. Show a loading state on the button like "Loading..." until ready. Also add a retry mechanism in sendEmailCode that waits for SDK to be ready instead of throwing immediately.

@@ -204,6 +204,13 @@
       box-shadow: var(--glow-purple);
     }
 
+    .wallet-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
     .wallet-btn.connected {
       background: var(--bg-glass);
       border: 1px solid var(--border-strong);
@@ -1454,7 +1461,7 @@
       <a href="#app">Marketplace</a>
     </nav>
     <div class="wallet-controls" id="walletControls">
-      <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
+      <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()" disabled>Loading...</button>
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
     </div>
   </header>
@@ -2041,6 +2048,7 @@
     let privyReadyPromise = null;
     let pendingEmail = null;
     let privyEmail = null;
+    let privySdkStatus = 'loading'; // 'loading' | 'ready' | 'error' — drives the Sign in with Email button
 
     // Read-only contract so the landing stats and marketplace render without a wallet
     function getReader() {
@@ -2059,6 +2067,7 @@
       initFooterLinks();
       renderWalletControls();
       checkWalletConnection();
+      ensurePrivyReady().catch(() => {}); // preload SDK + flip the email button out of its loading state
       tryRestorePrivySession();
       // Public data doesn't need a wallet — load it immediately
       loadLandingStats();
@@ -2249,14 +2258,22 @@
       }
     }
 
+    // Updates the Privy SDK readiness state and refreshes the Sign in with Email button to match
+    function setPrivySdkStatus(status) {
+      privySdkStatus = status;
+      renderWalletControls();
+    }
+
     // Renders the header wallet area for the current auth state (signed out / MetaMask / Privy email)
     function renderWalletControls() {
       const el = document.getElementById('walletControls');
       if (!el) return;
 
       if (!userAddress) {
+        const sdkLoading = privySdkStatus === 'loading';
+        const emailBtnLabel = sdkLoading ? 'Loading...' : 'Sign in with Email';
         el.innerHTML = `
-          <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
+          <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()" ${sdkLoading ? 'disabled' : ''}>${emailBtnLabel}</button>
           <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
         `;
         return;
@@ -2271,6 +2288,24 @@
     }
 
     /* ---------- Privy embedded wallet (email sign-in) ---------- */
+
+    // The Privy SDK loads from CDN as an async ES module (see <head>), so window.PrivyCore
+    // may not exist yet when the user interacts. Poll for it instead of failing immediately.
+    function waitForPrivyCore(timeoutMs = 10000) {
+      if (window.PrivyCore) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const start = Date.now();
+        const poll = setInterval(() => {
+          if (window.PrivyCore) {
+            clearInterval(poll);
+            resolve();
+          } else if (Date.now() - start > timeoutMs) {
+            clearInterval(poll);
+            reject(new Error('Privy SDK failed to load. Check your connection and try again.'));
+          }
+        }, 100);
+      });
+    }
 
     function getPrivyClient() {
       if (privyClient) return privyClient;
@@ -2287,9 +2322,17 @@
     function ensurePrivyReady() {
       if (!privyReadyPromise) {
         privyReadyPromise = (async () => {
-          const client = getPrivyClient();
-          await client.initialize();
-          return client;
+          try {
+            await waitForPrivyCore();
+            const client = getPrivyClient();
+            await client.initialize();
+            setPrivySdkStatus('ready');
+            return client;
+          } catch (err) {
+            privyReadyPromise = null; // don't cache a failure — let the next call retry
+            setPrivySdkStatus('error');
+            throw err;
+          }
         })();
       }
       return privyReadyPromise;
@@ -2319,7 +2362,7 @@
         showToast('Code sent — check your inbox', 'success');
       } catch (err) {
         console.error(err);
-        showToast('Failed to send code', 'error');
+        showToast(err.message && err.message.includes('Privy SDK') ? err.message : 'Failed to send code', 'error');
       }
     }
 
