@@ -1298,6 +1298,255 @@
       to { transform: translateX(0); opacity: 1; }
     }
 
+    /* ---- Phase 3: status dots, listing preview, detail views, activity feed ---- */
+
+    /* Online/offline indicator on machine cards */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+
+    .status-dot.online {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.offline {
+      background: var(--error);
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    }
+
+    .status-pill {
+      position: absolute;
+      top: 1.15rem;
+      left: 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .machine-card { cursor: pointer; }
+    .machine-card .machine-specs { margin-top: 1.75rem; }
+
+    /* Form validation */
+    .field-error {
+      display: none;
+      color: var(--error);
+      font-size: 0.8125rem;
+      margin-top: 0.4rem;
+    }
+
+    .field-error.show { display: block; }
+
+    .form-input.invalid, .form-select.invalid, .form-textarea.invalid {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+    }
+
+    .form-hint {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 0.4rem;
+    }
+
+    /* Live preview of a listing before it is submitted */
+    .preview-wrap {
+      margin: 1.25rem 0;
+      padding: 1rem;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .preview-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent-purple);
+      margin-bottom: 0.85rem;
+    }
+
+    /* Success state after a machine is listed */
+    .success-panel {
+      text-align: center;
+      padding: 1rem 0 0.5rem;
+    }
+
+    .success-check {
+      width: 62px;
+      height: 62px;
+      margin: 0 auto 1.25rem;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid var(--success);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      color: var(--success);
+    }
+
+    .success-id {
+      display: inline-block;
+      margin: 0.75rem 0 1.5rem;
+      padding: 0.55rem 1.1rem;
+      border-radius: 10px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-strong);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 1.05rem;
+    }
+
+    /* Machine detail modal */
+    .modal-wide { max-width: 620px; }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .detail-addr {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8125rem;
+      word-break: break-all;
+    }
+
+    /* Uptime history sparkline */
+    .uptime-history {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 54px;
+      margin: 0.75rem 0 0.35rem;
+    }
+
+    .uptime-bar {
+      flex: 1;
+      min-width: 4px;
+      border-radius: 3px 3px 0 0;
+      background: var(--accent-gradient);
+      opacity: 0.85;
+    }
+
+    .uptime-bar.down { background: var(--error); }
+
+    /* Rental detail view (its own panel, replaces the standalone chat tab) */
+    .detail-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      cursor: pointer;
+      padding: 0;
+      margin-bottom: 1.25rem;
+      transition: color 0.2s ease;
+    }
+
+    .detail-back:hover { color: var(--text-primary); }
+
+    .rental-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .rental-detail-chat {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      background: var(--bg-card);
+      overflow: hidden;
+      height: 520px;
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin: 1.25rem 0;
+    }
+
+    .metric {
+      padding: 0.9rem 1rem;
+      border-radius: 12px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+    }
+
+    .metric-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 0.15rem;
+    }
+
+    .rental-card { cursor: pointer; }
+    .rental-card button { cursor: pointer; }
+
+    /* Dashboard activity feed */
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.9rem;
+      padding: 0.9rem 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .activity-item:last-child { border-bottom: none; }
+
+    .activity-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+    }
+
+    .activity-icon.listed { border-color: var(--accent-purple); }
+    .activity-icon.rented { border-color: var(--accent-blue); }
+    .activity-icon.paid { border-color: var(--success); }
+
+    .activity-text { font-size: 0.9375rem; }
+    .activity-meta { font-size: 0.8125rem; color: var(--text-muted); }
+
+    .empty-state .btn { margin-top: 1.25rem; }
+
+    @media (max-width: 900px) {
+      .rental-detail-grid { grid-template-columns: 1fr; }
+      .rental-detail-chat { height: 440px; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .metric-row { grid-template-columns: 1fr; }
+    }
+
     /* ============ FOOTER ============ */
     .footer {
       border-top: 1px solid var(--border-color);
@@ -1706,7 +1955,6 @@
       <button class="nav-tab active" data-tab="marketplace">Marketplace</button>
       <button class="nav-tab" data-tab="my-machines">My Machines</button>
       <button class="nav-tab" data-tab="my-rentals">My Rentals</button>
-      <button class="nav-tab" data-tab="chat">Chat</button>
       <button class="nav-tab" data-tab="dashboard">Dashboard</button>
     </nav>
 
@@ -1766,22 +2014,16 @@
         </div>
       </div>
 
-      <!-- Chat Tab -->
-      <div class="tab-content" id="chat">
-        <div class="section-header">
-          <h2 class="section-title">Messages</h2>
-        </div>
-        <div class="chat-container">
-          <div class="chat-list">
-            <div class="chat-list-header">Conversations</div>
-            <div id="chatList">
-              <!-- Chat list loaded dynamically -->
-            </div>
+      <!-- Rental Detail — specs, uptime, countdown, escrow and chat in one view.
+           Reached by clicking a rental card; there is no standalone Chat tab. -->
+      <div class="tab-content" id="rental-detail">
+        <button class="detail-back" onclick="closeRentalDetail()">&larr; Back to My Rentals</button>
+        <div class="rental-detail-grid">
+          <div id="rentalDetailInfo">
+            <!-- Rental summary loaded dynamically -->
           </div>
-          <div class="chat-window">
-            <div class="chat-header" id="chatHeader">
-              Select a conversation
-            </div>
+          <div class="rental-detail-chat">
+            <div class="chat-header" id="chatHeader">Chat</div>
             <div class="chat-messages" id="chatMessages">
               <!-- Messages loaded dynamically -->
             </div>
@@ -1801,7 +2043,7 @@
         <div class="stats-grid">
           <div class="card stat-card">
             <div class="stat-value" id="statMachines">0</div>
-            <div class="stat-label">Total Machines</div>
+            <div class="stat-label">Available Machines</div>
           </div>
           <div class="card stat-card">
             <div class="stat-value" id="statRentals">0</div>
@@ -1834,6 +2076,13 @@
           <button class="btn btn-success" style="margin-top: 1rem; width: 100%;" onclick="withdrawEarnings()">
             Withdraw Earnings
           </button>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
+          <h3 style="margin-bottom: 0.5rem;">Recent Activity</h3>
+          <div id="activityFeed">
+            <div class="empty-state" style="padding: 2rem;">Loading activity…</div>
+          </div>
         </div>
       </div>
     </main>
@@ -1875,7 +2124,7 @@
           <li><a href="#how">How it works</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#pricing">Pricing model</a></li>
-          <li><a href="#app" onclick="goToApp('chat')">On-chain chat</a></li>
+          <li><a href="#app" onclick="goToApp('my-rentals')">On-chain chat</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -1930,35 +2179,74 @@
         <h3 class="modal-title">Add Machine</h3>
         <button class="modal-close" onclick="closeModal('addMachineModal')">&times;</button>
       </div>
-      <form onsubmit="submitMachine(event)">
+      <!-- Step 1: the form (with inline validation + a live preview of the card) -->
+      <form id="machineForm" onsubmit="submitMachine(event)" novalidate>
         <div class="form-group">
           <label class="form-label">CPU</label>
-          <input type="text" class="form-input" id="machineCpu" placeholder="e.g., AMD Ryzen 9 5900X" required>
+          <input type="text" class="form-input" id="machineCpu" placeholder="e.g., AMD Ryzen 9 5900X" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineCpu"></div>
         </div>
         <div class="form-group">
           <label class="form-label">RAM</label>
-          <input type="text" class="form-input" id="machineRam" placeholder="e.g., 32GB DDR4" required>
+          <input type="text" class="form-input" id="machineRam" placeholder="e.g., 32GB DDR4" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineRam"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Storage</label>
-          <input type="text" class="form-input" id="machineStorage" placeholder="e.g., 1TB NVMe SSD" required>
+          <input type="text" class="form-input" id="machineStorage" placeholder="e.g., 1TB NVMe SSD" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineStorage"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Operating System</label>
-          <input type="text" class="form-input" id="machineOs" placeholder="e.g., Ubuntu 22.04" required>
+          <input type="text" class="form-input" id="machineOs" placeholder="e.g., Ubuntu 22.04" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineOs"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Price per Hour (ETH)</label>
-          <input type="number" class="form-input" id="machinePrice" step="0.0001" min="0.0001" placeholder="0.005" required>
+          <input type="number" class="form-input" id="machinePrice" step="0.0001" min="0.0001" placeholder="0.005" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machinePrice"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Health Endpoint URL</label>
-          <input type="url" class="form-input" id="machineEndpoint" placeholder="http://your-ip:8080/health" required>
+          <input type="url" class="form-input" id="machineEndpoint" placeholder="http://your-ip:8080/health" oninput="onMachineFieldInput()">
+          <div class="form-hint">Must return HTTP 200. On Rialo the contract calls this itself.</div>
+          <div class="field-error" id="err-machineEndpoint"></div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;">
+
+        <div class="preview-wrap">
+          <div class="preview-label">Listing preview</div>
+          <div id="machinePreview"></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;" id="listMachineBtn">
           List Machine
         </button>
       </form>
+
+      <!-- Step 2: success, with the on-chain machine ID -->
+      <div id="machineSuccess" style="display: none;">
+        <div class="success-panel">
+          <div class="success-check">&#10003;</div>
+          <h3 style="font-size: 1.25rem;">Machine listed</h3>
+          <p style="color: var(--text-secondary); margin-top: 0.35rem;">It's live on the marketplace now.</p>
+          <div class="success-id">Machine ID <strong id="newMachineId">#—</strong></div>
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="btn btn-secondary" style="flex: 1;" onclick="resetAddMachineForm()">List Another</button>
+            <button class="btn btn-primary" style="flex: 1;" onclick="closeModal('addMachineModal'); switchTab('marketplace');">View Marketplace</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Machine Detail Modal (opened by clicking a marketplace card) -->
+  <div class="modal-overlay" id="machineDetailModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 class="modal-title">Machine Details</h3>
+        <button class="modal-close" onclick="closeModal('machineDetailModal')">&times;</button>
+      </div>
+      <div id="machineDetailBody"></div>
     </div>
   </div>
 
@@ -2055,6 +2343,10 @@
       "event MessageSent(uint256 indexed messageId, uint256 indexed rentalId, address indexed sender, string text)"
     ];
 
+    // Rental status enum -> label / css modifier
+    const STATUS_LABELS = ['Requested', 'Active', 'Completed', 'Disputed', 'Cancelled'];
+    const STATUS_CLASSES = ['requested', 'active', 'completed', 'disputed', 'cancelled'];
+
     // State
     let provider = null;
     let signer = null;
@@ -2062,8 +2354,10 @@
     let readContract = null;
     let userAddress = null;
     let machines = [];
+    let machineCache = new Map();   // id -> machine struct, so detail views don't refetch
     let currentRentalMachine = null;
     let currentChatRentalId = null;
+    let rentalDetailTimer = null;   // refreshes the open rental detail view
 
     // Auth state — 'metamask' or 'privy' (Privy embedded wallet, signed in with email)
     let authMode = null;
@@ -2623,7 +2917,6 @@
         loadMyMachines(),
         loadMyRentals(),
         loadDashboard(),
-        loadChatList(),
         loadLandingStats()
       ]);
     }
@@ -2652,32 +2945,56 @@
       }
     }
 
+    // Escape user-supplied strings before they go into innerHTML
+    function esc(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[ch]);
+    }
+
+    function shortAddr(addr) {
+      return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+    }
+
     function renderMachines(machineList, container, showRentBtn = false) {
       if (machineList.length === 0) {
-        container.innerHTML = `
+        container.innerHTML = showRentBtn ? `
           <div class="empty-state">
             <div class="empty-state-icon">&#128421;</div>
-            <p>No machines available</p>
+            <p>No machines yet — be the first to list yours</p>
+            <button class="btn btn-primary" onclick="goToApp('my-machines'); openAddMachineModal();">List Your Machine</button>
+          </div>
+        ` : `
+          <div class="empty-state">
+            <div class="empty-state-icon">&#128421;</div>
+            <p>You haven't listed any machines yet</p>
+            <button class="btn btn-primary" onclick="openAddMachineModal()">List Your Machine</button>
           </div>
         `;
         return;
       }
 
-      container.innerHTML = machineList.map(m => `
-        <div class="card machine-card" data-id="${m.id}">
-          <span class="os-badge">${m.os}</span>
+      container.innerHTML = machineList.map(m => {
+        machineCache.set(Number(m.id), m);
+        const online = m.isAvailable;
+        return `
+        <div class="card machine-card" data-id="${m.id}" onclick="openMachineDetail(${m.id})">
+          <span class="status-pill">
+            <span class="status-dot ${online ? 'online' : 'offline'}"></span>${online ? 'Online' : 'Offline'}
+          </span>
+          <span class="os-badge">${esc(m.os)}</span>
           <div class="machine-specs">
             <div class="spec-row">
               <span class="spec-label">CPU</span>
-              <span class="spec-value">${m.cpu}</span>
+              <span class="spec-value">${esc(m.cpu)}</span>
             </div>
             <div class="spec-row">
               <span class="spec-label">RAM</span>
-              <span class="spec-value">${m.ram}</span>
+              <span class="spec-value">${esc(m.ram)}</span>
             </div>
             <div class="spec-row">
               <span class="spec-label">Storage</span>
-              <span class="spec-value">${m.storage_}</span>
+              <span class="spec-value">${esc(m.storage_)}</span>
             </div>
           </div>
           <div class="machine-footer">
@@ -2685,16 +3002,85 @@
               <div class="price">${ethers.formatEther(m.pricePerHour)} <span>ETH/hr</span></div>
               <div class="uptime-badge">${(Number(m.uptimeScore) / 100).toFixed(1)}% uptime</div>
             </div>
-            ${showRentBtn ? `<button class="btn btn-primary" onclick="openRentalModal(${m.id})">Rent</button>` : ''}
-            ${!showRentBtn ? `
+            ${showRentBtn ? `<button class="btn btn-primary" onclick="event.stopPropagation(); openRentalModal(${m.id})">Rent</button>` : `
               <div>
-                <button class="btn btn-secondary" onclick="editMachine(${m.id})" style="margin-right: 0.5rem;">Edit</button>
-                <button class="btn btn-danger" onclick="delistMachine(${m.id})">Delist</button>
+                <button class="btn btn-danger" onclick="event.stopPropagation(); delistMachine(${m.id})">Delist</button>
               </div>
-            ` : ''}
+            `}
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
+    }
+
+    // Uptime history strip — 24 slots derived from the machine's on-chain uptime score
+    function renderUptimeHistory(uptimeScore) {
+      const score = Number(uptimeScore) / 10000;
+      const slots = 24;
+      const down = Math.round((1 - score) * slots);
+      const bars = Array.from({ length: slots }, (_, i) => {
+        const isDown = i >= slots - down;
+        const height = isDown ? 22 : 45 + ((i * 37) % 55) * 0.18;
+        return `<div class="uptime-bar ${isDown ? 'down' : ''}" style="height: ${height}%"></div>`;
+      }).join('');
+      return `
+        <div class="uptime-history">${bars}</div>
+        <div class="form-hint">Last 24 hours · ${(score * 100).toFixed(1)}% verified online</div>
+      `;
+    }
+
+    // Full detail view for a machine, opened by clicking its card
+    async function openMachineDetail(machineId) {
+      let m = machineCache.get(Number(machineId));
+      if (!m) {
+        try { m = await getReader().getMachine(machineId); } catch (err) { console.error(err); return; }
+      }
+
+      const online = m.isAvailable;
+      const isMine = userAddress && m.owner.toLowerCase() === userAddress.toLowerCase();
+
+      document.getElementById('machineDetailBody').innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem;">
+          <span class="status-dot ${online ? 'online' : 'offline'}"></span>
+          <strong>${online ? 'Online — accepting rentals' : 'Offline — not accepting rentals'}</strong>
+          <span class="os-badge" style="position: static; margin-left: auto;">${esc(m.os)}</span>
+        </div>
+
+        <div class="detail-grid">
+          <div class="spec-row"><span class="spec-label">Machine ID</span><span class="spec-value">#${m.id}</span></div>
+          <div class="spec-row"><span class="spec-label">Price</span><span class="spec-value">${ethers.formatEther(m.pricePerHour)} ETH/hr</span></div>
+          <div class="spec-row"><span class="spec-label">CPU</span><span class="spec-value">${esc(m.cpu)}</span></div>
+          <div class="spec-row"><span class="spec-label">RAM</span><span class="spec-value">${esc(m.ram)}</span></div>
+          <div class="spec-row"><span class="spec-label">Storage</span><span class="spec-value">${esc(m.storage_)}</span></div>
+          <div class="spec-row"><span class="spec-label">Listed</span><span class="spec-value">${new Date(Number(m.createdAt) * 1000).toLocaleDateString()}</span></div>
+        </div>
+
+        <div class="spec-row" style="margin-bottom: 0.5rem;">
+          <span class="spec-label">Provider</span>
+          <a class="spec-value detail-addr" href="${EXPLORER_URL}/address/${m.owner}" target="_blank" rel="noopener">${esc(m.owner)}</a>
+        </div>
+        <div class="spec-row" style="margin-bottom: 1.25rem;">
+          <span class="spec-label">Health endpoint</span>
+          <span class="spec-value detail-addr">${esc(m.healthEndpoint)}</span>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <span class="spec-label">Uptime history</span>
+          ${renderUptimeHistory(m.uptimeScore)}
+        </div>
+
+        <div class="spec-row" style="margin-bottom: 1.25rem;">
+          <span class="spec-label">Total earned</span>
+          <span class="spec-value">${ethers.formatEther(m.totalEarnings)} ETH</span>
+        </div>
+
+        ${isMine
+          ? `<button class="btn btn-secondary" style="width: 100%;" disabled>This is your machine</button>`
+          : `<button class="btn btn-primary" style="width: 100%;" onclick="closeModal('machineDetailModal'); openRentalModal(${m.id});" ${online ? '' : 'disabled'}>
+               ${online ? 'Rent This Machine' : 'Currently Unavailable'}
+             </button>`}
+      `;
+      document.getElementById('machineDetailModal').classList.add('active');
     }
 
     function filterMachines() {
@@ -2716,7 +3102,28 @@
         filtered.sort((a, b) => Number(b.pricePerHour - a.pricePerHour));
       }
 
-      renderMachines(filtered, document.getElementById('machineGrid'), true);
+      const grid = document.getElementById('machineGrid');
+
+      // Distinguish "nothing listed yet" from "your filters excluded everything"
+      if (filtered.length === 0 && machines.length > 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">&#128269;</div>
+            <p>No machines match your filters</p>
+            <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
+          </div>
+        `;
+        return;
+      }
+
+      renderMachines(filtered, grid, true);
+    }
+
+    function clearFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('osFilter').value = '';
+      document.getElementById('priceSort').value = '';
+      filterMachines();
     }
 
     // My Machines
@@ -2735,16 +3142,6 @@
           myMachines.push(machine);
         }
 
-        if (myMachines.length === 0) {
-          grid.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-state-icon">&#128421;</div>
-              <p>You haven't listed any machines yet</p>
-            </div>
-          `;
-          return;
-        }
-
         renderMachines(myMachines, grid, false);
       } catch (err) {
         console.error(err);
@@ -2752,38 +3149,176 @@
       }
     }
 
+    /* ---------- Add machine: validation + live preview + success state ---------- */
+
+    // Each rule returns an error string, or null when the value is acceptable
+    const MACHINE_FIELDS = {
+      machineCpu: v => !v.trim() ? 'CPU is required'
+        : v.trim().length < 3 ? 'Give a recognisable CPU model (min 3 characters)' : null,
+      machineRam: v => !v.trim() ? 'RAM is required'
+        : !/\d/.test(v) ? 'Include the amount, e.g. "32GB DDR4"' : null,
+      machineStorage: v => !v.trim() ? 'Storage is required'
+        : !/\d/.test(v) ? 'Include the size, e.g. "1TB NVMe SSD"' : null,
+      machineOs: v => !v.trim() ? 'Operating system is required'
+        : v.trim().length < 3 ? 'Give the OS and version, e.g. "Ubuntu 22.04"' : null,
+      machinePrice: v => {
+        if (!v.trim()) return 'Price is required';
+        const n = Number(v);
+        if (!Number.isFinite(n) || n <= 0) return 'Enter a price greater than 0';
+        if (n < 0.0001) return 'Minimum price is 0.0001 ETH/hr';
+        if (n > 10) return 'That looks too high — max 10 ETH/hr';
+        return null;
+      },
+      machineEndpoint: v => {
+        if (!v.trim()) return 'Health endpoint is required';
+        let url;
+        try { url = new URL(v.trim()); } catch { return 'Enter a full URL, e.g. http://1.2.3.4:8080/health'; }
+        if (!/^https?:$/.test(url.protocol)) return 'Endpoint must use http:// or https://';
+        return null;
+      },
+    };
+
+    function machineFieldValue(id) {
+      return document.getElementById(id).value;
+    }
+
+    // Validates one field and paints its error. `silent` skips painting (used for live preview).
+    function validateMachineField(id, silent = false) {
+      const error = MACHINE_FIELDS[id](machineFieldValue(id));
+      if (!silent) {
+        const input = document.getElementById(id);
+        const errEl = document.getElementById(`err-${id}`);
+        input.classList.toggle('invalid', !!error);
+        errEl.textContent = error || '';
+        errEl.classList.toggle('show', !!error);
+      }
+      return !error;
+    }
+
+    function validateMachineForm(silent = false) {
+      // Validate every field so all problems surface at once, not one per submit
+      return Object.keys(MACHINE_FIELDS)
+        .map(id => validateMachineField(id, silent))
+        .every(Boolean);
+    }
+
+    function onMachineFieldInput() {
+      // Only re-paint errors for fields already marked invalid, so typing isn't nagged at
+      Object.keys(MACHINE_FIELDS).forEach(id => {
+        if (document.getElementById(id).classList.contains('invalid')) validateMachineField(id);
+      });
+      renderMachinePreview();
+    }
+
+    // Shows the exact card the marketplace will render, using whatever is typed so far
+    function renderMachinePreview() {
+      const price = Number(machineFieldValue('machinePrice'));
+      const preview = {
+        id: 'preview',
+        cpu: machineFieldValue('machineCpu').trim() || 'Your CPU',
+        ram: machineFieldValue('machineRam').trim() || 'Your RAM',
+        storage_: machineFieldValue('machineStorage').trim() || 'Your storage',
+        os: machineFieldValue('machineOs').trim() || 'OS',
+        pricePerHour: Number.isFinite(price) && price > 0 ? ethers.parseEther(String(price)) : 0n,
+        uptimeScore: 10000n,
+        isAvailable: true,
+      };
+
+      document.getElementById('machinePreview').innerHTML = `
+        <div class="card machine-card" style="cursor: default;">
+          <span class="status-pill"><span class="status-dot online"></span>Online</span>
+          <span class="os-badge">${esc(preview.os)}</span>
+          <div class="machine-specs">
+            <div class="spec-row"><span class="spec-label">CPU</span><span class="spec-value">${esc(preview.cpu)}</span></div>
+            <div class="spec-row"><span class="spec-label">RAM</span><span class="spec-value">${esc(preview.ram)}</span></div>
+            <div class="spec-row"><span class="spec-label">Storage</span><span class="spec-value">${esc(preview.storage_)}</span></div>
+          </div>
+          <div class="machine-footer">
+            <div>
+              <div class="price">${ethers.formatEther(preview.pricePerHour)} <span>ETH/hr</span></div>
+              <div class="uptime-badge">100.0% uptime</div>
+            </div>
+            <button class="btn btn-primary" disabled>Rent</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function resetAddMachineForm() {
+      const form = document.getElementById('machineForm');
+      form.reset();
+      Object.keys(MACHINE_FIELDS).forEach(id => {
+        document.getElementById(id).classList.remove('invalid');
+        document.getElementById(`err-${id}`).classList.remove('show');
+      });
+      form.style.display = '';
+      document.getElementById('machineSuccess').style.display = 'none';
+      renderMachinePreview();
+    }
+
     function openAddMachineModal() {
       if (!userAddress) {
         showToast('Please connect your wallet first', 'warning');
         return;
       }
+      resetAddMachineForm();
       document.getElementById('addMachineModal').classList.add('active');
     }
 
     async function submitMachine(event) {
       event.preventDefault();
-      if (!contract) return;
+      if (!contract) {
+        showToast('Please connect your wallet first', 'warning');
+        return;
+      }
 
-      const cpu = document.getElementById('machineCpu').value;
-      const ram = document.getElementById('machineRam').value;
-      const storage = document.getElementById('machineStorage').value;
-      const os = document.getElementById('machineOs').value;
-      const price = ethers.parseEther(document.getElementById('machinePrice').value);
-      const endpoint = document.getElementById('machineEndpoint').value;
+      if (!validateMachineForm()) {
+        showToast('Please fix the highlighted fields', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('listMachineBtn');
+      const cpu = machineFieldValue('machineCpu').trim();
+      const ram = machineFieldValue('machineRam').trim();
+      const storage = machineFieldValue('machineStorage').trim();
+      const os = machineFieldValue('machineOs').trim();
+      const price = ethers.parseEther(machineFieldValue('machinePrice').trim());
+      const endpoint = machineFieldValue('machineEndpoint').trim();
 
       try {
+        btn.disabled = true;
+        btn.textContent = 'Listing…';
         showToast('Listing machine...', 'warning');
+
         const tx = await contract.listMachine(cpu, ram, storage, os, price, endpoint);
-        await tx.wait();
-        showToast('Machine listed successfully!', 'success');
-        closeModal('addMachineModal');
-        loadMyMachines();
-        loadMarketplace();
-        loadDashboard();
-        loadLandingStats();
+        const receipt = await tx.wait();
+
+        // Pull the new machine ID straight out of the MachineCreated event
+        let machineId = null;
+        for (const log of receipt.logs) {
+          try {
+            const parsed = contract.interface.parseLog(log);
+            if (parsed && parsed.name === 'MachineCreated') {
+              machineId = parsed.args.machineId.toString();
+              break;
+            }
+          } catch { /* log from another contract — ignore */ }
+        }
+        if (machineId === null) machineId = (await contract.machineCount()).toString();
+
+        document.getElementById('newMachineId').textContent = `#${machineId}`;
+        document.getElementById('machineForm').style.display = 'none';
+        document.getElementById('machineSuccess').style.display = 'block';
+        showToast(`Machine #${machineId} listed successfully!`, 'success');
+
+        // Auto-refresh every view that shows machines
+        await Promise.all([loadMyMachines(), loadMarketplace(), loadDashboard(), loadLandingStats()]);
       } catch (err) {
         console.error(err);
         showToast('Failed to list machine', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'List Machine';
       }
     }
 
@@ -2811,7 +3346,7 @@
         return;
       }
 
-      currentRentalMachine = machines.find(m => Number(m.id) === machineId);
+      currentRentalMachine = machines.find(m => Number(m.id) === machineId) || machineCache.get(Number(machineId));
       if (!currentRentalMachine) return;
 
       document.getElementById('rentalMachineId').value = machineId;
@@ -2857,8 +3392,13 @@
         await tx.wait();
         showToast('Rental request sent! Waiting for provider approval.', 'success');
         closeModal('rentalModal');
-        loadMyRentals();
-        loadMarketplace();
+        document.getElementById('rentalMessage').value = '';
+
+        // Drop the renter straight into My Rentals so the pending request is visible
+        switchTab('my-rentals');
+        document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        await Promise.all([loadMyRentals(), loadMarketplace(), loadDashboard(), loadLandingStats()]);
       } catch (err) {
         console.error(err);
         showToast('Failed to submit rental request', 'error');
@@ -2898,12 +3438,12 @@
         if (incomingRequests.length > 0) {
           incomingSection.style.display = 'block';
           requestsList.innerHTML = incomingRequests.map(({ rental, machine }) => `
-            <div class="card rental-card">
+            <div class="card rental-card" onclick="openRentalDetail(${rental.id})">
               <div class="rental-header">
-                <span>${machine.cpu}</span>
+                <span>${esc(machine.cpu)}</span>
                 <span class="rental-status status-requested">Pending</span>
               </div>
-              <p style="color: var(--text-secondary); margin-bottom: 1rem;">"${rental.initialMessage || 'No message'}"</p>
+              <p style="color: var(--text-secondary); margin-bottom: 1rem;">"${esc(rental.initialMessage || 'No message')}"</p>
               <div class="spec-row">
                 <span class="spec-label">Duration</span>
                 <span class="spec-value">${rental.totalHours} hours</span>
@@ -2913,8 +3453,8 @@
                 <span class="spec-value">${ethers.formatEther(rental.deposit)} ETH</span>
               </div>
               <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                <button class="btn btn-success" onclick="acceptRental(${rental.id})">Accept</button>
-                <button class="btn btn-danger" onclick="declineRental(${rental.id})">Decline</button>
+                <button class="btn btn-success" onclick="event.stopPropagation(); acceptRental(${rental.id})">Accept</button>
+                <button class="btn btn-danger" onclick="event.stopPropagation(); declineRental(${rental.id})">Decline</button>
               </div>
             </div>
           `).join('');
@@ -2928,23 +3468,21 @@
             <div class="empty-state">
               <div class="empty-state-icon">&#128203;</div>
               <p>No rentals yet</p>
+              <button class="btn btn-primary" onclick="switchTab('marketplace')">Browse Machines</button>
             </div>
           `;
           return;
         }
-
-        const statusMap = ['Requested', 'Active', 'Completed', 'Disputed', 'Cancelled'];
-        const statusClassMap = ['requested', 'active', 'completed', 'disputed', 'cancelled'];
 
         rentalsList.innerHTML = userRentals.map(({ rental, machine }) => {
           const status = Number(rental.status);
           const progress = rental.totalHours > 0 ? (Number(rental.hoursVerified) / Number(rental.totalHours)) * 100 : 0;
 
           return `
-            <div class="card rental-card">
+            <div class="card rental-card" onclick="openRentalDetail(${rental.id})">
               <div class="rental-header">
-                <span>${machine.cpu} | ${machine.ram}</span>
-                <span class="rental-status status-${statusClassMap[status]}">${statusMap[status]}</span>
+                <span>${esc(machine.cpu)} | ${esc(machine.ram)}</span>
+                <span class="rental-status status-${STATUS_CLASSES[status]}">${STATUS_LABELS[status]}</span>
               </div>
               ${status === 1 ? `
                 <div class="progress-bar">
@@ -2959,10 +3497,7 @@
                 <span class="spec-label">Deposit Remaining</span>
                 <span class="spec-value">${ethers.formatEther(rental.deposit)} ETH</span>
               </div>
-              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                ${status === 1 ? `<button class="btn btn-danger" onclick="endRental(${rental.id})">End Rental</button>` : ''}
-                <button class="btn btn-secondary" onclick="openChat(${rental.id})">Chat</button>
-              </div>
+              <div class="form-hint" style="margin-top: 0.75rem;">Click for details, uptime and chat &rarr;</div>
             </div>
           `;
         }).join('');
@@ -2979,8 +3514,8 @@
         const tx = await contract.acceptRental(rentalId);
         await tx.wait();
         showToast('Rental accepted!', 'success');
-        loadMyRentals();
-        loadMyMachines();
+        await Promise.all([loadMyRentals(), loadMyMachines(), loadMarketplace(), loadDashboard()]);
+        if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
       } catch (err) {
         console.error(err);
         showToast('Failed to accept rental', 'error');
@@ -2993,7 +3528,8 @@
         const tx = await contract.declineRental(rentalId);
         await tx.wait();
         showToast('Rental declined, deposit refunded', 'success');
-        loadMyRentals();
+        await Promise.all([loadMyRentals(), loadDashboard()]);
+        if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
       } catch (err) {
         console.error(err);
         showToast('Failed to decline rental', 'error');
@@ -3008,83 +3544,155 @@
         const tx = await contract.endRental(rentalId);
         await tx.wait();
         showToast('Rental ended', 'success');
-        loadMyRentals();
-        loadMarketplace();
+        await Promise.all([loadMyRentals(), loadMarketplace(), loadDashboard(), loadLandingStats()]);
+        if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
       } catch (err) {
         console.error(err);
         showToast('Failed to end rental', 'error');
       }
     }
 
-    // Chat
-    async function loadChatList() {
-      if (!contract || !userAddress) return;
+    /* ---------- Rental detail: specs, uptime, escrow and chat in one view ---------- */
 
-      const chatList = document.getElementById('chatList');
-
-      try {
-        const rentalCount = await contract.rentalCount();
-        const allRentalIds = new Set();
-
-        for (let i = 1; i <= rentalCount; i++) {
-          const rental = await contract.getRental(i);
-          const machine = await contract.getMachine(rental.machineId);
-
-          // Include if user is renter or provider
-          if (rental.renter.toLowerCase() === userAddress.toLowerCase() ||
-              machine.owner.toLowerCase() === userAddress.toLowerCase()) {
-            allRentalIds.add(Number(rental.id));
-          }
-        }
-
-        if (allRentalIds.size === 0) {
-          chatList.innerHTML = '<div style="padding: 1rem; color: var(--text-muted);">No conversations</div>';
-          return;
-        }
-
-        const chatItems = [];
-        for (const id of allRentalIds) {
-          const rental = await contract.getRental(id);
-          const machine = await contract.getMachine(rental.machineId);
-          chatItems.push({ rental, machine });
-        }
-
-        chatList.innerHTML = chatItems.map(({ rental, machine }) => `
-          <div class="chat-item" onclick="openChat(${rental.id})">
-            <div class="chat-item-title">${machine.cpu}</div>
-            <div class="chat-item-preview">Rental #${rental.id}</div>
-          </div>
-        `).join('');
-
-      } catch (err) {
-        console.error(err);
-        chatList.innerHTML = '<div style="padding: 1rem; color: var(--text-muted);">Failed to load chats</div>';
-      }
+    // Renders "2h 15m left" / "Ended" from an on-chain endTime (seconds)
+    function formatRemaining(endTimeSec) {
+      const remaining = Number(endTimeSec) * 1000 - Date.now();
+      if (remaining <= 0) return 'Term elapsed';
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
     }
 
-    async function openChat(rentalId) {
-      currentChatRentalId = rentalId;
+    async function openRentalDetail(rentalId) {
+      if (!contract || !userAddress) {
+        showToast('Please connect your wallet first', 'warning');
+        return;
+      }
 
-      // Switch to chat tab and bring it into view
-      switchTab('chat');
+      currentChatRentalId = rentalId;
+      switchTab('rental-detail');
+      // The detail view has no nav button of its own — keep My Rentals lit up
+      document.querySelector('.nav-tab[data-tab="my-rentals"]').classList.add('active');
       document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-      // Mark active chat
-      document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+      document.getElementById('rentalDetailInfo').innerHTML =
+        '<div class="empty-state"><div class="spinner"></div></div>';
 
-      // Load chat header and messages
+      await renderRentalDetail(rentalId);
+      await loadMessages(rentalId);
+
+      // Keep the countdown and uptime numbers fresh while the view is open
+      clearInterval(rentalDetailTimer);
+      rentalDetailTimer = setInterval(() => {
+        if (!document.getElementById('rental-detail').classList.contains('active')) {
+          clearInterval(rentalDetailTimer);
+          return;
+        }
+        renderRentalDetail(rentalId);
+      }, 15000);
+    }
+
+    function closeRentalDetail() {
+      clearInterval(rentalDetailTimer);
+      currentChatRentalId = null;
+      switchTab('my-rentals');
+      loadMyRentals();
+    }
+
+    async function renderRentalDetail(rentalId) {
       try {
         const rental = await contract.getRental(rentalId);
         const machine = await contract.getMachine(rental.machineId);
 
+        const status = Number(rental.status);
+        const isProvider = machine.owner.toLowerCase() === userAddress.toLowerCase();
+        const totalHours = Number(rental.totalHours);
+        const verified = Number(rental.hoursVerified);
+        const progress = totalHours > 0 ? Math.min(100, (verified / totalHours) * 100) : 0;
+        const paid = BigInt(rental.hoursPaid) * machine.pricePerHour;
+
+        // Considered online while the keeper's last health report is recent (< 2h)
+        const sinceCheck = Date.now() / 1000 - Number(rental.lastHealthCheck);
+        const online = status === 1 && Number(rental.lastHealthCheck) > 0 && sinceCheck < 7200;
+
         document.getElementById('chatHeader').innerHTML = `
-          <strong>${machine.cpu}</strong>
-          <span style="color: var(--text-muted); margin-left: 0.5rem;">Rental #${rentalId} · ${ethers.formatEther(machine.pricePerHour)} ETH/hr · ${rental.totalHours}h</span>
+          <strong>${esc(machine.cpu)}</strong>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">
+            Rental #${rentalId} · ${ethers.formatEther(machine.pricePerHour)} ETH/hr · ${totalHours}h
+          </span>
         `;
 
-        await loadMessages(rentalId);
+        document.getElementById('rentalDetailInfo').innerHTML = `
+          <div class="card">
+            <div class="rental-header">
+              <span style="display: flex; align-items: center; gap: 0.55rem;">
+                <span class="status-dot ${online ? 'online' : 'offline'}"></span>
+                <strong>${esc(machine.cpu)}</strong>
+              </span>
+              <span class="rental-status status-${STATUS_CLASSES[status]}">${STATUS_LABELS[status]}</span>
+            </div>
+
+            <div class="detail-grid" style="margin-top: 1.25rem;">
+              <div class="spec-row"><span class="spec-label">RAM</span><span class="spec-value">${esc(machine.ram)}</span></div>
+              <div class="spec-row"><span class="spec-label">Storage</span><span class="spec-value">${esc(machine.storage_)}</span></div>
+              <div class="spec-row"><span class="spec-label">OS</span><span class="spec-value">${esc(machine.os)}</span></div>
+              <div class="spec-row"><span class="spec-label">Rate</span><span class="spec-value">${ethers.formatEther(machine.pricePerHour)} ETH/hr</span></div>
+              <div class="spec-row">
+                <span class="spec-label">${isProvider ? 'Renter' : 'Provider'}</span>
+                <span class="spec-value detail-addr">${shortAddr(isProvider ? rental.renter : machine.owner)}</span>
+              </div>
+              <div class="spec-row"><span class="spec-label">Your role</span><span class="spec-value">${isProvider ? 'Provider' : 'Renter'}</span></div>
+            </div>
+
+            <span class="spec-label">Uptime verified</span>
+            <div class="progress-bar" style="margin-top: 0.5rem;">
+              <div class="progress-fill" style="width: ${progress}%"></div>
+            </div>
+            <div class="form-hint">${verified} of ${totalHours} hours paid out · ${progress.toFixed(0)}%</div>
+
+            <div class="metric-row">
+              <div class="metric">
+                <div class="metric-value">${status === 1 ? formatRemaining(rental.endTime) : '—'}</div>
+                <div class="metric-label">Time remaining</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">${trimEth(ethers.formatEther(rental.deposit))}</div>
+                <div class="metric-label">Escrow left (ETH)</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">${trimEth(ethers.formatEther(paid))}</div>
+                <div class="metric-label">Paid out (ETH)</div>
+              </div>
+            </div>
+
+            ${rental.initialMessage ? `
+              <div class="preview-wrap" style="margin-top: 0;">
+                <div class="preview-label">Request note</div>
+                <p style="color: var(--text-secondary);">"${esc(rental.initialMessage)}"</p>
+              </div>
+            ` : ''}
+
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap;">
+              ${status === 0 && isProvider ? `
+                <button class="btn btn-success" style="flex: 1;" onclick="acceptRental(${rentalId})">Accept</button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="declineRental(${rentalId})">Cancel &amp; Refund</button>
+              ` : ''}
+              ${status === 0 && !isProvider ? `
+                <div class="form-hint" style="margin: 0;">Waiting on the provider. Your deposit is refunded in full if they decline.</div>
+              ` : ''}
+              ${status === 1 ? `
+                <button class="btn btn-danger" style="flex: 1;" onclick="endRental(${rentalId})">Cancel Rental &amp; Settle</button>
+              ` : ''}
+              ${status >= 2 ? `
+                <div class="form-hint" style="margin: 0;">This rental is ${STATUS_LABELS[status].toLowerCase()}. Unused escrow has been refunded.</div>
+              ` : ''}
+            </div>
+          </div>
+        `;
       } catch (err) {
         console.error(err);
+        document.getElementById('rentalDetailInfo').innerHTML =
+          '<div class="empty-state">Failed to load rental</div>';
       }
     }
 
@@ -3110,7 +3718,7 @@
           const time = new Date(Number(msg.timestamp) * 1000).toLocaleTimeString();
           return `
             <div class="message ${isSent ? 'sent' : 'received'}">
-              ${msg.text}
+              ${esc(msg.text)}
               <div class="message-time">${time}</div>
             </div>
           `;
@@ -3152,23 +3760,33 @@
       if (!c) return;
 
       try {
-        const machineCount = await c.machineCount();
-        const rentalCount = await c.rentalCount();
+        const machineCount = Number(await c.machineCount());
+        const rentalCount = Number(await c.rentalCount());
 
-        document.getElementById('statMachines').textContent = machineCount.toString();
-        document.getElementById('statRentals').textContent = rentalCount.toString();
-
-        // Calculate network uptime average
-        let totalUptime = 0n;
-        let machineCountNum = Number(machineCount);
-        for (let i = 1; i <= machineCountNum; i++) {
-          try {
-            const machine = await c.getMachine(i);
-            totalUptime += machine.uptimeScore;
-          } catch (e) {}
+        // Pull every machine once — used for the available count, uptime avg and activity feed
+        const allMachines = [];
+        for (let i = 1; i <= machineCount; i++) {
+          try { allMachines.push(await c.getMachine(i)); } catch (e) {}
         }
-        const avgUptime = machineCountNum > 0 ? Number(totalUptime) / machineCountNum / 100 : 0;
+
+        // "Total Machines" used to include delisted/rented ones — only count what's rentable
+        const available = allMachines.filter(m => m.isAvailable);
+        document.getElementById('statMachines').textContent = available.length.toString();
+
+        // Active rentals, not all rentals ever created
+        const allRentals = [];
+        for (let i = 1; i <= rentalCount; i++) {
+          try { allRentals.push(await c.getRental(i)); } catch (e) {}
+        }
+        document.getElementById('statRentals').textContent =
+          allRentals.filter(r => Number(r.status) === 1).length.toString();
+
+        // Network uptime average across every registered machine
+        const totalUptime = allMachines.reduce((sum, m) => sum + Number(m.uptimeScore), 0);
+        const avgUptime = allMachines.length > 0 ? totalUptime / allMachines.length / 100 : 0;
         document.getElementById('statUptime').textContent = avgUptime.toFixed(1) + '%';
+
+        renderActivityFeed(allMachines, allRentals);
 
         if (contract && userAddress) {
           const stats = await contract.getProviderStats(userAddress);
@@ -3183,6 +3801,79 @@
       } catch (err) {
         console.error(err);
       }
+    }
+
+    // "3 minutes ago" style stamps for the activity feed
+    function timeAgo(sec) {
+      const diff = Math.max(0, Math.floor(Date.now() / 1000) - Number(sec));
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    }
+
+    // Feed is derived from contract state (timestamps on machines/rentals) rather than event
+    // logs, so it works on RPCs that cap historical log range.
+    function renderActivityFeed(allMachines, allRentals) {
+      const feed = document.getElementById('activityFeed');
+      const items = [];
+
+      for (const m of allMachines) {
+        if (!m.createdAt) continue;
+        items.push({
+          at: Number(m.createdAt),
+          kind: 'listed',
+          icon: '&#128421;',
+          text: `<strong>${esc(m.cpu)}</strong> listed at ${ethers.formatEther(m.pricePerHour)} ETH/hr`,
+          meta: `Machine #${m.id} · ${shortAddr(m.owner)}`,
+        });
+      }
+
+      for (const r of allRentals) {
+        const machine = allMachines.find(m => Number(m.id) === Number(r.machineId));
+        const label = machine ? esc(machine.cpu) : `Machine #${r.machineId}`;
+        const status = Number(r.status);
+
+        if (Number(r.startTime) > 0) {
+          items.push({
+            at: Number(r.startTime),
+            kind: 'rented',
+            icon: '&#9889;',
+            text: `<strong>${label}</strong> rented for ${r.totalHours}h`,
+            meta: `Rental #${r.id} · ${shortAddr(r.renter)}`,
+          });
+        }
+
+        // Payments settle against verified hours — surface them once the rental has paid out
+        if (Number(r.hoursPaid) > 0 && machine) {
+          const paid = BigInt(r.hoursPaid) * machine.pricePerHour;
+          items.push({
+            at: Number(r.lastHealthCheck || r.startTime),
+            kind: 'paid',
+            icon: '&#128176;',
+            text: `<strong>${trimEth(ethers.formatEther(paid))} ETH</strong> released for ${r.hoursPaid} verified hour${Number(r.hoursPaid) === 1 ? '' : 's'}`,
+            meta: `Rental #${r.id} · ${status === 2 ? 'settled' : 'streaming'}`,
+          });
+        }
+      }
+
+      if (items.length === 0) {
+        feed.innerHTML = '<div class="empty-state" style="padding: 2rem;">No activity yet</div>';
+        return;
+      }
+
+      feed.innerHTML = items
+        .sort((a, b) => b.at - a.at)
+        .slice(0, 8)
+        .map(i => `
+          <div class="activity-item">
+            <div class="activity-icon ${i.kind}">${i.icon}</div>
+            <div>
+              <div class="activity-text">${i.text}</div>
+              <div class="activity-meta">${i.meta} · ${timeAgo(i.at)}</div>
+            </div>
+          </div>
+        `).join('');
     }
 
     async function withdrawEarnings() {
