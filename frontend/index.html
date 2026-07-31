@@ -7,9 +7,23 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
   <!-- Privy JS SDK (embedded wallets) — loaded as an ES module and exposed on window.PrivyCore -->
   <script type="module">
-    import Privy, { LocalStorage, getUserEmbeddedEthereumWallet, getEntropyDetailsFromAccount } from 'https://esm.sh/@privy-io/js-sdk-core@0.68.5';
-    import { baseSepolia } from 'https://esm.sh/@privy-io/chains@0.5.2';
-    window.PrivyCore = { Privy, LocalStorage, getUserEmbeddedEthereumWallet, getEntropyDetailsFromAccount, baseSepolia };
+    try {
+      const [core, chains] = await Promise.all([
+        import('https://esm.sh/@privy-io/js-sdk-core@0.68.5'),
+        import('https://esm.sh/@privy-io/chains@0.5.2'),
+      ]);
+      window.PrivyCore = {
+        Privy: core.default,
+        LocalStorage: core.LocalStorage,
+        getUserEmbeddedEthereumWallet: core.getUserEmbeddedEthereumWallet,
+        getEntropyDetailsFromAccount: core.getEntropyDetailsFromAccount,
+        baseSepolia: chains.baseSepolia,
+      };
+    } catch (err) {
+      // Surface CDN/module failures instead of leaving the page polling forever
+      console.error('[Privy] SDK module failed to load:', err);
+      window.PrivyCoreError = err;
+    }
   </script>
   <style>
     :root {
@@ -1976,8 +1990,17 @@
             <label class="form-label">Verification code</label>
             <input type="text" class="form-input" id="emailCodeInput" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" required>
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%;">Verify &amp; Sign In</button>
+          <button type="submit" class="btn btn-primary" style="width: 100%;" id="verifyCodeBtn">Verify &amp; Sign In</button>
         </form>
+      </div>
+      <!-- Shown when the code was accepted but the embedded wallet failed to load. The code is
+           already spent at this point, so we offer a wallet retry instead of a second code entry. -->
+      <div id="walletStep" style="display: none;">
+        <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9375rem;">
+          You're signed in, but your embedded wallet didn't load.
+          <span id="walletStepError" style="color: var(--error); display: block; margin-top: 0.5rem;"></span>
+        </p>
+        <button class="btn btn-primary" style="width: 100%;" id="walletRetryBtn" onclick="retryWalletSetup()">Retry Wallet Setup</button>
       </div>
     </div>
   </div>
@@ -2049,6 +2072,8 @@
     let pendingEmail = null;
     let privyEmail = null;
     let privySdkStatus = 'loading'; // 'loading' | 'ready' | 'error' — drives the Sign in with Email button
+    let privyIframe = null;         // hidden cross-origin iframe that hosts the embedded wallet's secure context
+    let emailAuthBusy = false;      // guards double-submits — a one-time code is burned by the first attempt
 
     // Read-only contract so the landing stats and marketplace render without a wallet
     function getReader() {
@@ -2289,17 +2314,38 @@
 
     /* ---------- Privy embedded wallet (email sign-in) ---------- */
 
+    // Logs the useful bits of a Privy failure. PrivyApiError carries code/status/error alongside message.
+    function logPrivyError(context, err) {
+      console.error(`[Privy] ${context} failed:`, {
+        name: err && err.name,
+        message: err && err.message,
+        code: err && err.code,
+        status: err && err.status,
+        error: err && err.error,
+      }, err);
+    }
+
+    // Turns a Privy error into something worth showing a user, falling back to a generic message
+    function describePrivyError(err, fallback) {
+      if (!err) return fallback;
+      if (err.status === 429 || err.code === 'rate_limited') return 'Too many attempts — wait a minute and try again.';
+      if (err.status === 422) return 'That code is invalid or already used. Request a new one.';
+      if (err.message && /Privy SDK|embedded wallet|iframe|timeout/i.test(err.message)) return err.message;
+      return fallback;
+    }
+
     // The Privy SDK loads from CDN as an async ES module (see <head>), so window.PrivyCore
     // may not exist yet when the user interacts. Poll for it instead of failing immediately.
     function waitForPrivyCore(timeoutMs = 10000) {
       if (window.PrivyCore) return Promise.resolve();
+      if (window.PrivyCoreError) return Promise.reject(new Error('Privy SDK failed to load. Check your connection and try again.'));
       return new Promise((resolve, reject) => {
         const start = Date.now();
         const poll = setInterval(() => {
           if (window.PrivyCore) {
             clearInterval(poll);
             resolve();
-          } else if (Date.now() - start > timeoutMs) {
+          } else if (window.PrivyCoreError || Date.now() - start > timeoutMs) {
             clearInterval(poll);
             reject(new Error('Privy SDK failed to load. Check your connection and try again.'));
           }
@@ -2319,6 +2365,56 @@
       return privyClient;
     }
 
+    // js-sdk-core is headless: it never creates the embedded wallet's secure context for us.
+    // Key material lives in a cross-origin iframe on auth.privy.io, and the SDK talks to it through
+    // a "message poster" we supply. Without this wiring every embeddedWallet.* call throws
+    // "Embedded wallet proxy not initialized". Must run before any wallet create/provider call.
+    function setupEmbeddedWalletProxy(client) {
+      if (privyIframe) return privyIframe;
+
+      const iframeUrl = client.embeddedWallet.getURL();
+      const iframeOrigin = new URL(iframeUrl).origin;
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'privyEmbeddedWallet';
+      iframe.title = 'Privy embedded wallet';
+      iframe.src = iframeUrl;
+      iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden;';
+      iframe.setAttribute('allow', `publickey-credentials-get ${iframeOrigin}; publickey-credentials-create ${iframeOrigin}; clipboard-write`);
+      iframe.addEventListener('error', () => console.error('[Privy] embedded wallet iframe failed to load:', iframeUrl));
+      document.body.appendChild(iframe);
+      privyIframe = iframe;
+
+      // Outbound: the SDK hands us an already-JSON-stringified envelope to forward verbatim.
+      client.setMessagePoster({
+        postMessage: (message) => {
+          if (!iframe.contentWindow) {
+            console.error('[Privy] embedded wallet iframe has no content window — dropping message');
+            return;
+          }
+          iframe.contentWindow.postMessage(message, iframeOrigin);
+        },
+        reload: () => { iframe.src = iframeUrl; },
+      });
+
+      // Inbound: route replies from the secure context back into the SDK's pending-call queue.
+      window.addEventListener('message', (event) => {
+        if (event.origin !== iframeOrigin || event.source !== iframe.contentWindow) return;
+        let payload = event.data;
+        if (typeof payload === 'string') {
+          try { payload = JSON.parse(payload); } catch (err) { return; }
+        }
+        if (!payload || typeof payload.event !== 'string' || !payload.event.startsWith('privy:')) return;
+        try {
+          client.embeddedWallet.onMessage(payload);
+        } catch (err) {
+          logPrivyError(`handling "${payload.event}" from embedded wallet`, err);
+        }
+      });
+
+      return iframe;
+    }
+
     function ensurePrivyReady() {
       if (!privyReadyPromise) {
         privyReadyPromise = (async () => {
@@ -2326,11 +2422,13 @@
             await waitForPrivyCore();
             const client = getPrivyClient();
             await client.initialize();
+            setupEmbeddedWalletProxy(client); // wallet iframe must exist before any embeddedWallet.* call
             setPrivySdkStatus('ready');
             return client;
           } catch (err) {
             privyReadyPromise = null; // don't cache a failure — let the next call retry
             setPrivySdkStatus('error');
+            logPrivyError('SDK initialization', err);
             throw err;
           }
         })();
@@ -2338,50 +2436,112 @@
       return privyReadyPromise;
     }
 
+    // The iframe boots asynchronously; ping() completes the ready handshake (or reports it never came).
+    async function ensureEmbeddedWalletReady(client, timeoutMs = 20000) {
+      const ready = await client.embeddedWallet.ping(timeoutMs);
+      if (!ready) throw new Error('Embedded wallet did not respond. Reload the page and try again.');
+    }
+
+    function showEmailStep(step) {
+      ['emailStep', 'codeStep', 'walletStep'].forEach(id => {
+        document.getElementById(id).style.display = id === step ? 'block' : 'none';
+      });
+    }
+
+    function setEmailAuthBusy(busy) {
+      emailAuthBusy = busy;
+      ['verifyCodeBtn', 'walletRetryBtn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = busy;
+      });
+    }
+
     function openEmailModal() {
-      document.getElementById('emailStep').style.display = 'block';
-      document.getElementById('codeStep').style.display = 'none';
+      showEmailStep('emailStep');
       document.getElementById('emailInput').value = '';
       document.getElementById('emailCodeInput').value = '';
+      setEmailAuthBusy(false);
       document.getElementById('emailModal').classList.add('active');
     }
 
     async function sendEmailCode(event) {
       event.preventDefault();
       const email = document.getElementById('emailInput').value.trim();
-      if (!email) return;
+      if (!email || emailAuthBusy) return;
 
+      setEmailAuthBusy(true);
       try {
         showToast('Sending code...', 'warning');
         const client = await ensurePrivyReady();
         await client.auth.email.sendCode(email);
         pendingEmail = email;
+        document.getElementById('emailCodeInput').value = '';
         document.getElementById('codeStepEmail').textContent = email;
-        document.getElementById('emailStep').style.display = 'none';
-        document.getElementById('codeStep').style.display = 'block';
+        showEmailStep('codeStep');
         showToast('Code sent — check your inbox', 'success');
       } catch (err) {
-        console.error(err);
-        showToast(err.message && err.message.includes('Privy SDK') ? err.message : 'Failed to send code', 'error');
+        logPrivyError('email.sendCode', err);
+        showToast(describePrivyError(err, 'Failed to send code'), 'error');
+      } finally {
+        setEmailAuthBusy(false);
       }
     }
 
     async function verifyEmailCode(event) {
       event.preventDefault();
       const code = document.getElementById('emailCodeInput').value.trim();
-      if (!code || !pendingEmail) return;
+      if (!code || !pendingEmail || emailAuthBusy) return;
 
+      setEmailAuthBusy(true);
+      let client;
+      let user;
+
+      // Step 1 — exchange the one-time code for a session. A failure here really is a bad code.
       try {
         showToast('Verifying code...', 'warning');
-        const client = await ensurePrivyReady();
-        const { user } = await client.auth.email.loginWithCode(pendingEmail, code, 'login-or-sign-up', {
+        client = await ensurePrivyReady();
+        const result = await client.auth.email.loginWithCode(pendingEmail, code, 'login-or-sign-up', {
           embedded: { ethereum: { createOnLogin: 'users-without-wallets' } },
         });
+        user = result.user;
+      } catch (err) {
+        logPrivyError('email.loginWithCode', err);
+        showToast(describePrivyError(err, 'Invalid or expired code'), 'error');
+        setEmailAuthBusy(false);
+        return;
+      }
+
+      // Step 2 — the code is spent now. Wallet problems must never send the user back to re-enter
+      // it: resubmitting a consumed code is what produces "Invalid email and code combination" (422).
+      try {
         await finishPrivyLogin(client, user, pendingEmail);
         closeModal('emailModal');
       } catch (err) {
-        console.error(err);
-        showToast('Invalid or expired code', 'error');
+        logPrivyError('embedded wallet setup', err);
+        document.getElementById('walletStepError').textContent = describePrivyError(err, err.message || 'Wallet setup failed.');
+        showEmailStep('walletStep');
+        showToast('Signed in, but the wallet failed to load', 'error');
+      } finally {
+        setEmailAuthBusy(false);
+      }
+    }
+
+    // Retry only the wallet half of sign-in, reusing the session the spent code already bought us
+    async function retryWalletSetup() {
+      if (emailAuthBusy) return;
+      setEmailAuthBusy(true);
+      try {
+        const client = await ensurePrivyReady();
+        client.embeddedWallet.reload(); // drop a half-broken iframe and re-handshake
+        const { user } = await client.user.get();
+        await finishPrivyLogin(client, user, pendingEmail);
+        closeModal('emailModal');
+      } catch (err) {
+        logPrivyError('embedded wallet retry', err);
+        document.getElementById('walletStepError').textContent = describePrivyError(err, err.message || 'Wallet setup failed.');
+        showToast('Wallet setup failed again — try reloading the page', 'error');
+      } finally {
+        setEmailAuthBusy(false);
       }
     }
 
@@ -2389,10 +2549,14 @@
     async function finishPrivyLogin(client, user, email) {
       const { getUserEmbeddedEthereumWallet, getEntropyDetailsFromAccount } = window.PrivyCore;
 
+      // The wallet lives in a cross-origin iframe — don't touch it until the handshake lands
+      await ensureEmbeddedWalletReady(client);
+
       let account = getUserEmbeddedEthereumWallet(user);
       if (!account) {
-        user = await client.embeddedWallet.create({});
-        account = getUserEmbeddedEthereumWallet(user);
+        // create() resolves to an AuthenticatedUser envelope, not the user itself
+        const created = await client.embeddedWallet.create({});
+        account = getUserEmbeddedEthereumWallet(created.user);
       }
       if (!account) throw new Error('Could not create embedded wallet');
 
@@ -2413,15 +2577,18 @@
 
     // Silently restore a previous Privy session (LocalStorage-backed) on page load
     async function tryRestorePrivySession() {
-      if (!window.PrivyCore || userAddress) return;
+      if (userAddress) return;
       try {
+        // ensurePrivyReady() waits for the CDN module itself — checking window.PrivyCore here
+        // would just skip restore on every load, since the module is still in flight.
         const client = await ensurePrivyReady();
         const { user } = await client.user.get();
         if (userAddress) return; // a MetaMask connection won the race while we were awaiting
         const emailAccount = (user.linked_accounts || []).find(a => a.type === 'email');
         await finishPrivyLogin(client, user, emailAccount ? emailAccount.address : null);
       } catch (err) {
-        // No existing Privy session — nothing to restore
+        // Usually just "no existing session" — log at debug level so real failures are still visible
+        console.debug('[Privy] no session restored:', err && err.message);
       }
     }
 
@@ -2429,9 +2596,10 @@
       try {
         if (authMode === 'privy' && privyClient) {
           await privyClient.auth.logout();
+          privyClient.embeddedWallet.reload(); // clear key material out of the secure iframe
         }
       } catch (err) {
-        console.error(err);
+        logPrivyError('logout', err);
       }
 
       provider = null;
