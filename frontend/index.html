@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NodePool — Decentralized Cloud Computing</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <!-- Privy JS SDK (embedded wallets) — loaded as an ES module and exposed on window.PrivyCore -->
+  <script type="module">
+    import Privy, { LocalStorage, getUserEmbeddedEthereumWallet, getEntropyDetailsFromAccount } from 'https://esm.sh/@privy-io/js-sdk-core@0.68.5';
+    import { baseSepolia } from 'https://esm.sh/@privy-io/chains@0.5.2';
+    window.PrivyCore = { Privy, LocalStorage, getUserEmbeddedEthereumWallet, getEntropyDetailsFromAccount, baseSepolia };
+  </script>
   <style>
     :root {
       --bg-primary: #070a12;
@@ -212,6 +218,49 @@
       border-radius: 50%;
       background: var(--success);
       box-shadow: 0 0 8px var(--success);
+    }
+
+    .wallet-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .wallet-btn-outline {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .wallet-btn-outline:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent-purple);
+      box-shadow: var(--glow-purple);
+    }
+
+    .wallet-identity {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .wallet-btn-logout {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--error);
+      border: 1px solid var(--error);
+      padding: 0.6rem 1rem;
+      font-size: 0.8125rem;
+    }
+
+    .wallet-btn-logout:hover {
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 480px) {
+      .wallet-identity { display: none; }
     }
 
     /* ============ HERO ============ */
@@ -1404,9 +1453,10 @@
       <a href="#pricing">Pricing</a>
       <a href="#app">Marketplace</a>
     </nav>
-    <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">
-      Connect Wallet
-    </button>
+    <div class="wallet-controls" id="walletControls">
+      <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
+      <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+    </div>
   </header>
 
   <!-- ================= HERO ================= -->
@@ -1891,6 +1941,40 @@
     </div>
   </div>
 
+  <!-- Email Sign-in Modal (Privy embedded wallet) -->
+  <div class="modal-overlay" id="emailModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Sign in with Email</h3>
+        <button class="modal-close" onclick="closeModal('emailModal')">&times;</button>
+      </div>
+      <div id="emailStep">
+        <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9375rem;">
+          We'll create a secure embedded wallet for you — no browser extension needed.
+        </p>
+        <form onsubmit="sendEmailCode(event)">
+          <div class="form-group">
+            <label class="form-label">Email address</label>
+            <input type="email" class="form-input" id="emailInput" placeholder="you@example.com" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Send Code</button>
+        </form>
+      </div>
+      <div id="codeStep" style="display: none;">
+        <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9375rem;">
+          We sent a code to <strong id="codeStepEmail"></strong>.
+        </p>
+        <form onsubmit="verifyEmailCode(event)">
+          <div class="form-group">
+            <label class="form-label">Verification code</label>
+            <input type="text" class="form-input" id="emailCodeInput" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Verify &amp; Sign In</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
@@ -1898,6 +1982,7 @@
     // Contract configuration - UPDATE THIS AFTER DEPLOYMENT
     // Deployed to Base Sepolia (chainId 84532)
     const CONTRACT_ADDRESS = '0xadC135620B239946321EcF57E7d424FA9d165850';
+    const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
     const CHAIN_ID_HEX = '0x14a34'; // 84532
     const RPC_URL = 'https://sepolia.base.org';
     const EXPLORER_URL = 'https://sepolia.basescan.org';
@@ -1950,6 +2035,13 @@
     let currentRentalMachine = null;
     let currentChatRentalId = null;
 
+    // Auth state — 'metamask' or 'privy' (Privy embedded wallet, signed in with email)
+    let authMode = null;
+    let privyClient = null;
+    let privyReadyPromise = null;
+    let pendingEmail = null;
+    let privyEmail = null;
+
     // Read-only contract so the landing stats and marketplace render without a wallet
     function getReader() {
       if (contract) return contract;
@@ -1965,7 +2057,9 @@
       initTabs();
       initReveal();
       initFooterLinks();
+      renderWalletControls();
       checkWalletConnection();
+      tryRestorePrivySession();
       // Public data doesn't need a wallet — load it immediately
       loadLandingStats();
       loadMarketplace();
@@ -2124,11 +2218,10 @@
         provider = new ethers.BrowserProvider(window.ethereum);
         signer = await provider.getSigner();
         userAddress = await signer.getAddress();
+        authMode = 'metamask';
+        privyEmail = null;
 
-        // Update button
-        const btn = document.getElementById('connectBtn');
-        btn.textContent = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
-        btn.classList.add('connected');
+        renderWalletControls();
 
         // Initialize contract
         if (CONTRACT_ADDRESS) {
@@ -2154,6 +2247,162 @@
         console.error(err);
         showToast('Failed to connect wallet', 'error');
       }
+    }
+
+    // Renders the header wallet area for the current auth state (signed out / MetaMask / Privy email)
+    function renderWalletControls() {
+      const el = document.getElementById('walletControls');
+      if (!el) return;
+
+      if (!userAddress) {
+        el.innerHTML = `
+          <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
+          <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+        `;
+        return;
+      }
+
+      const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+      el.innerHTML = `
+        ${privyEmail ? `<span class="wallet-identity" title="${userAddress}">${privyEmail}</span>` : ''}
+        <span class="wallet-btn connected" title="${userAddress}">${shortAddress}</span>
+        <button class="wallet-btn wallet-btn-logout" onclick="logoutWallet()">Logout</button>
+      `;
+    }
+
+    /* ---------- Privy embedded wallet (email sign-in) ---------- */
+
+    function getPrivyClient() {
+      if (privyClient) return privyClient;
+      if (!window.PrivyCore) throw new Error('Privy SDK is still loading — try again in a second.');
+      const { Privy, LocalStorage, baseSepolia } = window.PrivyCore;
+      privyClient = new Privy({
+        appId: PRIVY_APP_ID,
+        storage: new LocalStorage(),
+        supportedChains: [baseSepolia],
+      });
+      return privyClient;
+    }
+
+    function ensurePrivyReady() {
+      if (!privyReadyPromise) {
+        privyReadyPromise = (async () => {
+          const client = getPrivyClient();
+          await client.initialize();
+          return client;
+        })();
+      }
+      return privyReadyPromise;
+    }
+
+    function openEmailModal() {
+      document.getElementById('emailStep').style.display = 'block';
+      document.getElementById('codeStep').style.display = 'none';
+      document.getElementById('emailInput').value = '';
+      document.getElementById('emailCodeInput').value = '';
+      document.getElementById('emailModal').classList.add('active');
+    }
+
+    async function sendEmailCode(event) {
+      event.preventDefault();
+      const email = document.getElementById('emailInput').value.trim();
+      if (!email) return;
+
+      try {
+        showToast('Sending code...', 'warning');
+        const client = await ensurePrivyReady();
+        await client.auth.email.sendCode(email);
+        pendingEmail = email;
+        document.getElementById('codeStepEmail').textContent = email;
+        document.getElementById('emailStep').style.display = 'none';
+        document.getElementById('codeStep').style.display = 'block';
+        showToast('Code sent — check your inbox', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to send code', 'error');
+      }
+    }
+
+    async function verifyEmailCode(event) {
+      event.preventDefault();
+      const code = document.getElementById('emailCodeInput').value.trim();
+      if (!code || !pendingEmail) return;
+
+      try {
+        showToast('Verifying code...', 'warning');
+        const client = await ensurePrivyReady();
+        const { user } = await client.auth.email.loginWithCode(pendingEmail, code, 'login-or-sign-up', {
+          embedded: { ethereum: { createOnLogin: 'users-without-wallets' } },
+        });
+        await finishPrivyLogin(client, user, pendingEmail);
+        closeModal('emailModal');
+      } catch (err) {
+        console.error(err);
+        showToast('Invalid or expired code', 'error');
+      }
+    }
+
+    // Wires up a logged-in Privy user's embedded wallet as the ethers signer, same as connectWallet() does for MetaMask
+    async function finishPrivyLogin(client, user, email) {
+      const { getUserEmbeddedEthereumWallet, getEntropyDetailsFromAccount } = window.PrivyCore;
+
+      let account = getUserEmbeddedEthereumWallet(user);
+      if (!account) {
+        user = await client.embeddedWallet.create({});
+        account = getUserEmbeddedEthereumWallet(user);
+      }
+      if (!account) throw new Error('Could not create embedded wallet');
+
+      const { entropyId, entropyIdVerifier } = getEntropyDetailsFromAccount(account);
+      const eip1193Provider = await client.embeddedWallet.getEthereumProvider({ wallet: account, entropyId, entropyIdVerifier });
+
+      provider = new ethers.BrowserProvider(eip1193Provider);
+      signer = await provider.getSigner();
+      userAddress = account.address;
+      authMode = 'privy';
+      privyEmail = email || null;
+
+      contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      renderWalletControls();
+      loadAllData();
+      showToast('Signed in with email!', 'success');
+    }
+
+    // Silently restore a previous Privy session (LocalStorage-backed) on page load
+    async function tryRestorePrivySession() {
+      if (!window.PrivyCore || userAddress) return;
+      try {
+        const client = await ensurePrivyReady();
+        const { user } = await client.user.get();
+        if (userAddress) return; // a MetaMask connection won the race while we were awaiting
+        const emailAccount = (user.linked_accounts || []).find(a => a.type === 'email');
+        await finishPrivyLogin(client, user, emailAccount ? emailAccount.address : null);
+      } catch (err) {
+        // No existing Privy session — nothing to restore
+      }
+    }
+
+    async function logoutWallet() {
+      try {
+        if (authMode === 'privy' && privyClient) {
+          await privyClient.auth.logout();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      provider = null;
+      signer = null;
+      contract = null;
+      userAddress = null;
+      authMode = null;
+      privyEmail = null;
+      pendingEmail = null;
+
+      renderWalletControls();
+      showToast('Logged out', 'success');
+      loadMarketplace();
+      loadDashboard();
     }
 
     // Load All Data
