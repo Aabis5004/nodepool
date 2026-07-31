@@ -1,0 +1,2777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NodePool — Decentralized Cloud Computing</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #070a12;
+      --bg-secondary: #0d1220;
+      --bg-elevated: #121a2b;
+      --bg-card: rgba(18, 26, 43, 0.72);
+      --bg-glass: rgba(255, 255, 255, 0.045);
+      --border-color: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text-primary: #f5f7fb;
+      --text-secondary: #a8b1c4;
+      --text-muted: #6b7488;
+      --accent-purple: #8b5cf6;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #22d3ee;
+      --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+      --accent-gradient-wide: linear-gradient(120deg, #a78bfa 0%, #6366f1 45%, #22d3ee 100%);
+      --success: #10b981;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --glow-purple: 0 0 24px rgba(139, 92, 246, 0.28);
+      --glow-blue: 0 0 24px rgba(59, 130, 246, 0.28);
+      --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.75);
+      --header-h: 72px;
+      --radius: 16px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Ubuntu, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    ::selection { background: rgba(139, 92, 246, 0.35); }
+
+    /* Shared section scaffolding */
+    .section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 6rem 2rem;
+      scroll-margin-top: var(--header-h);
+    }
+
+    .section-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent-purple);
+      margin-bottom: 1rem;
+    }
+
+    .section-heading {
+      font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+
+    .section-sub {
+      color: var(--text-secondary);
+      margin-top: 0.75rem;
+      max-width: 620px;
+      font-size: 1.0625rem;
+    }
+
+    .section-head-center {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    .section-head-center .section-sub { margin-left: auto; margin-right: auto; }
+
+    .gradient-text {
+      background: var(--accent-gradient-wide);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Header */
+    .header {
+      height: var(--header-h);
+      background: rgba(7, 10, 18, 0.72);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-icon {
+      width: 38px;
+      height: 38px;
+      background: var(--accent-gradient);
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--glow-purple);
+      flex-shrink: 0;
+    }
+
+    .logo-icon svg { width: 22px; height: 22px; }
+
+    .logo-text {
+      background: var(--accent-gradient-wide);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-nav {
+      display: flex;
+      gap: 2rem;
+      font-size: 0.9375rem;
+      color: var(--text-secondary);
+    }
+
+    .header-nav a {
+      transition: color 0.2s ease;
+      position: relative;
+    }
+
+    .header-nav a:hover { color: var(--text-primary); }
+
+    .header-nav a::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: -6px;
+      height: 2px;
+      background: var(--accent-gradient);
+      border-radius: 2px;
+      transform: scaleX(0);
+      transition: transform 0.25s ease;
+    }
+
+    .header-nav a:hover::after { transform: scaleX(1); }
+
+    .wallet-btn {
+      background: var(--accent-gradient);
+      border: none;
+      padding: 0.65rem 1.35rem;
+      border-radius: 10px;
+      color: white;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+    }
+
+    .wallet-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--glow-purple);
+    }
+
+    .wallet-btn.connected {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-strong);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.875rem;
+    }
+
+    .wallet-btn.connected::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* ============ HERO ============ */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 7rem 2rem 6rem;
+      text-align: center;
+      isolation: isolate;
+    }
+
+    /* Animated gradient mesh */
+    .hero-bg {
+      position: absolute;
+      inset: -30% -10%;
+      z-index: -2;
+      background:
+        radial-gradient(42% 42% at 20% 30%, rgba(139, 92, 246, 0.40) 0%, transparent 65%),
+        radial-gradient(38% 38% at 78% 25%, rgba(59, 130, 246, 0.36) 0%, transparent 65%),
+        radial-gradient(45% 45% at 55% 78%, rgba(34, 211, 238, 0.20) 0%, transparent 65%);
+      filter: blur(20px);
+      animation: meshDrift 22s ease-in-out infinite alternate;
+    }
+
+    @keyframes meshDrift {
+      0%   { transform: translate3d(-3%, -2%, 0) scale(1); }
+      50%  { transform: translate3d(4%, 3%, 0) scale(1.12); }
+      100% { transform: translate3d(-2%, 4%, 0) scale(1.04); }
+    }
+
+    /* Grid overlay, faded out toward the edges */
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: radial-gradient(70% 60% at 50% 40%, #000 0%, transparent 100%);
+      -webkit-mask-image: radial-gradient(70% 60% at 50% 40%, #000 0%, transparent 100%);
+    }
+
+    .hero-inner {
+      max-width: 880px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.45rem 1rem;
+      border-radius: 999px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-strong);
+      backdrop-filter: blur(10px);
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+    }
+
+    .hero-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 10px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.6rem, 7vw, 4.75rem);
+      line-height: 1.04;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 .line-2 {
+      background: var(--accent-gradient-wide);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      background-size: 200% auto;
+      animation: shimmer 8s linear infinite;
+    }
+
+    @keyframes shimmer {
+      to { background-position: 200% center; }
+    }
+
+    .hero-sub {
+      font-size: clamp(1.05rem, 2vw, 1.3rem);
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin: 0 auto 2.75rem;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-hero {
+      position: relative;
+      padding: 1rem 2.25rem;
+      border-radius: 12px;
+      font-size: 1.0625rem;
+      font-weight: 650;
+      border: none;
+      cursor: pointer;
+      background: var(--accent-gradient);
+      color: #fff;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      box-shadow: 0 0 0 rgba(139, 92, 246, 0), 0 12px 32px -12px rgba(99, 102, 241, 0.9);
+      animation: ctaGlow 3.5s ease-in-out infinite;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    @keyframes ctaGlow {
+      0%, 100% { box-shadow: 0 0 22px rgba(139, 92, 246, 0.35), 0 12px 32px -12px rgba(99, 102, 241, 0.9); }
+      50%      { box-shadow: 0 0 46px rgba(139, 92, 246, 0.62), 0 12px 40px -12px rgba(59, 130, 246, 1); }
+    }
+
+    .btn-hero:hover { transform: translateY(-3px); }
+
+    .btn-hero-ghost {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-strong);
+      backdrop-filter: blur(10px);
+      animation: none;
+      box-shadow: none;
+      color: var(--text-primary);
+    }
+
+    .btn-hero-ghost:hover {
+      border-color: var(--accent-purple);
+      box-shadow: var(--glow-purple);
+    }
+
+    .hero-note {
+      margin-top: 1.75rem;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* ============ STATS BAR ============ */
+    .stats-bar-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: linear-gradient(180deg, rgba(18, 26, 43, 0.9), rgba(13, 18, 32, 0.75));
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .stats-bar-item {
+      padding: 1.85rem 1.5rem;
+      text-align: center;
+      border-right: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .stats-bar-item:last-child { border-right: none; }
+
+    .stats-bar-value {
+      font-size: clamp(1.5rem, 2.6vw, 2rem);
+      font-weight: 750;
+      letter-spacing: -0.03em;
+      background: var(--accent-gradient-wide);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+
+    .stats-bar-label {
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      margin-top: 0.35rem;
+    }
+
+    /* ============ HOW IT WORKS ============ */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      position: relative;
+    }
+
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 2.25rem 1.75rem;
+      backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .step-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(70% 60% at 50% 0%, rgba(139, 92, 246, 0.14), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    .step-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(139, 92, 246, 0.5);
+      box-shadow: var(--shadow-lg), var(--glow-purple);
+    }
+
+    .step-card:hover::after { opacity: 1; }
+
+    .step-num {
+      position: absolute;
+      top: 1.25rem;
+      right: 1.5rem;
+      font-size: 3.25rem;
+      font-weight: 800;
+      line-height: 1;
+      color: rgba(255, 255, 255, 0.05);
+      letter-spacing: -0.05em;
+    }
+
+    .step-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(59, 130, 246, 0.18));
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      color: #c4b5fd;
+    }
+
+    .step-icon svg { width: 26px; height: 26px; }
+
+    .step-card h3 {
+      font-size: 1.1875rem;
+      font-weight: 650;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.015em;
+    }
+
+    .step-card p {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+    }
+
+    .step-arrow {
+      position: absolute;
+      top: 50%;
+      right: -1.9rem;
+      transform: translateY(-50%);
+      color: var(--accent-purple);
+      opacity: 0.55;
+      z-index: 2;
+    }
+
+    .step-arrow svg { width: 22px; height: 22px; }
+
+    /* ============ FEATURES ============ */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      backdrop-filter: blur(12px);
+      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      position: relative;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(99, 102, 241, 0.5);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.15rem;
+      color: #a5b4fc;
+    }
+
+    .feature-icon svg { width: 21px; height: 21px; }
+
+    .feature-card h3 {
+      font-size: 1.0625rem;
+      font-weight: 650;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+    }
+
+    .pill-soon {
+      font-size: 0.625rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      color: var(--accent-cyan);
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.32);
+    }
+
+    /* ============ PRICING COMPARISON ============ */
+    .compare-wrap {
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      overflow: hidden;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .compare-scroll { overflow-x: auto; }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 640px;
+    }
+
+    .compare-table th,
+    .compare-table td {
+      padding: 1.15rem 1.5rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.9375rem;
+      vertical-align: top;
+    }
+
+    .compare-table tr:last-child td { border-bottom: none; }
+
+    .compare-table thead th {
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 1rem;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+
+    .compare-table th:first-child {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      width: 24%;
+    }
+
+    .col-vps { color: var(--text-secondary); width: 38%; }
+
+    .col-np {
+      background: linear-gradient(180deg, rgba(139, 92, 246, 0.10), rgba(59, 130, 246, 0.05));
+      width: 38%;
+    }
+
+    .compare-table td.col-np { color: var(--text-primary); font-weight: 500; }
+
+    .compare-table td.row-label { color: var(--text-secondary); font-weight: 500; }
+
+    .th-np {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+
+    .mark {
+      display: inline-flex;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      margin-right: 0.55rem;
+      vertical-align: -3px;
+    }
+
+    .mark-bad { color: var(--error); }
+    .mark-good { color: var(--success); }
+
+    .compare-footnote {
+      padding: 1.25rem 1.5rem;
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* ============ APP SECTION ============ */
+    .app-section {
+      border-top: 1px solid var(--border-color);
+      background:
+        radial-gradient(60% 40% at 50% 0%, rgba(99, 102, 241, 0.10), transparent 70%),
+        var(--bg-primary);
+      scroll-margin-top: var(--header-h);
+      padding-bottom: 4rem;
+    }
+
+    .app-intro {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 4rem 2rem 1.5rem;
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.75rem 2rem;
+      background: rgba(13, 18, 32, 0.85);
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      overflow-x: auto;
+      position: sticky;
+      top: var(--header-h);
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      scrollbar-width: none;
+    }
+
+    .nav-tabs::-webkit-scrollbar { display: none; }
+
+    .nav-tab {
+      padding: 0.65rem 1.35rem;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-weight: 550;
+      font-size: 0.9375rem;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .nav-tab:hover {
+      color: var(--text-primary);
+      background: var(--bg-glass);
+    }
+
+    .nav-tab.active {
+      background: var(--accent-gradient);
+      color: white;
+      border-color: transparent;
+      box-shadow: var(--glow-purple);
+    }
+
+    /* Main Content */
+    .main-content {
+      padding: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.35s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(139, 92, 246, 0.5);
+      box-shadow: var(--glow-purple);
+    }
+
+    /* Machine Grid */
+    .machine-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .machine-card {
+      position: relative;
+    }
+
+    .machine-card .os-badge {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.25rem 0.75rem;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .machine-specs {
+      display: grid;
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .spec-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .spec-label {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    .spec-value {
+      color: var(--text-primary);
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .machine-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+      gap: 1rem;
+    }
+
+    .price {
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .price span {
+      font-size: 0.875rem;
+      font-weight: 400;
+      -webkit-text-fill-color: var(--text-muted);
+    }
+
+    .uptime-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 20px;
+      color: var(--success);
+      font-size: 0.8125rem;
+      margin-top: 0.35rem;
+    }
+
+    .uptime-badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 0.7rem 1.35rem;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      border: none;
+      font-size: 0.875rem;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--accent-gradient);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--glow-purple);
+    }
+
+    .btn-secondary {
+      background: var(--bg-glass);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent-purple);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--error);
+      border: 1px solid var(--error);
+    }
+
+    .btn-success {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: rgba(7, 10, 18, 0.8);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-family: inherit;
+      transition: all 0.25s ease;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--accent-purple);
+      box-shadow: var(--glow-purple);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    /* Stats Dashboard */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(3, 5, 10, 0.82);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      padding: 2rem;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+      animation: fadeIn 0.25s ease;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+
+    /* Rental Cards */
+    .rental-card {
+      margin-bottom: 1rem;
+    }
+
+    .rental-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      gap: 1rem;
+    }
+
+    .rental-status {
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .status-requested { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+    .status-active { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+    .status-completed { background: rgba(107, 114, 128, 0.1); color: var(--text-muted); }
+    .status-disputed { background: rgba(239, 68, 68, 0.1); color: var(--error); }
+    .status-cancelled { background: rgba(107, 114, 128, 0.1); color: var(--text-muted); }
+
+    .progress-bar {
+      height: 8px;
+      background: rgba(7, 10, 18, 0.9);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 1rem 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent-gradient);
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    /* Chat */
+    .chat-container {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 1.5rem;
+      height: 600px;
+    }
+
+    .chat-list {
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+
+    .chat-list-header {
+      padding: 1rem;
+      background: var(--bg-glass);
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 600;
+    }
+
+    .chat-item {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: background 0.25s ease;
+    }
+
+    .chat-item:hover, .chat-item.active {
+      background: var(--bg-glass);
+    }
+
+    .chat-item-title {
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    .chat-item-preview {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-window {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+
+    .chat-header {
+      padding: 1rem;
+      background: var(--bg-glass);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 0.75rem 1rem;
+      border-radius: 16px;
+    }
+
+    .message.sent {
+      align-self: flex-end;
+      background: var(--accent-gradient);
+      color: white;
+    }
+
+    .message.received {
+      align-self: flex-start;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+    }
+
+    .message-time {
+      font-size: 0.75rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 0.5rem;
+      padding: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .chat-input input {
+      flex: 1;
+    }
+
+    /* Section Headers (in-app) */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar .form-input, .filter-bar .form-select {
+      width: auto;
+      min-width: 150px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+      grid-column: 1 / -1;
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .toast {
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-lg);
+      animation: slideIn 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--error); }
+    .toast.warning { border-color: var(--warning); }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* ============ FOOTER ============ */
+    .footer {
+      border-top: 1px solid var(--border-color);
+      background: linear-gradient(180deg, rgba(13, 18, 32, 0.5), rgba(7, 10, 18, 1));
+      padding: 4rem 2rem 2rem;
+    }
+
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.6fr repeat(3, 1fr);
+      gap: 3rem;
+    }
+
+    .footer-brand p {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      margin-top: 1rem;
+      max-width: 320px;
+    }
+
+    .footer-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-strong);
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .footer-col h4 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-weight: 650;
+    }
+
+    .footer-col ul { list-style: none; display: grid; gap: 0.6rem; }
+
+    .footer-col a {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      transition: color 0.2s ease;
+    }
+
+    .footer-col a:hover { color: var(--accent-purple); }
+
+    .footer-bottom {
+      max-width: 1200px;
+      margin: 3rem auto 0;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    .footer-addr {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8125rem;
+    }
+
+    /* ============ SCROLL REVEAL ============ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: opacity, transform;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border-color);
+      border-top-color: var(--accent-purple);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 10, 18, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .steps { grid-template-columns: 1fr; }
+      .step-arrow { display: none; }
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .footer-inner { grid-template-columns: 1fr 1fr; }
+      .header-nav { display: none; }
+    }
+
+    @media (max-width: 768px) {
+      .header { padding: 0 1rem; }
+      .section { padding: 4rem 1.25rem; }
+      .hero { padding: 4.5rem 1.25rem 4rem; }
+      .stats-bar-wrap { padding: 0 1.25rem; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .stats-bar-item:nth-child(2) { border-right: none; }
+      .stats-bar-item:nth-child(-n+2) { border-bottom: 1px solid var(--border-color); }
+      .features-grid { grid-template-columns: 1fr; }
+      .nav-tabs { padding: 0.6rem 1rem; }
+      .app-intro { padding: 3rem 1.25rem 1rem; }
+      .main-content { padding: 1.25rem; }
+      .chat-container { grid-template-columns: 1fr; height: auto; }
+      .chat-list { max-height: 200px; overflow-y: auto; }
+      .chat-window { height: 400px; }
+      .machine-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .stat-value { font-size: 1.75rem; }
+      .footer-inner { grid-template-columns: 1fr; gap: 2rem; }
+      .toast-container { left: 1rem; right: 1rem; bottom: 1rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+      html { scroll-behavior: auto; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <a class="logo" href="#top">
+      <div class="logo-icon">
+        <!-- Node/network mark -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="2.4"/>
+          <circle cx="5" cy="5" r="2"/>
+          <circle cx="19" cy="5" r="2"/>
+          <circle cx="5" cy="19" r="2"/>
+          <circle cx="19" cy="19" r="2"/>
+          <path d="M6.5 6.5 10.2 10.2M17.5 6.5 13.8 10.2M6.5 17.5 10.2 13.8M17.5 17.5 13.8 13.8"/>
+        </svg>
+      </div>
+      <span class="logo-text">NodePool</span>
+    </a>
+    <nav class="header-nav">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#app">Marketplace</a>
+    </nav>
+    <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">
+      Connect Wallet
+    </button>
+  </header>
+
+  <!-- ================= HERO ================= -->
+  <section class="hero" id="top">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        Live on Base Sepolia · Built for Rialo
+      </div>
+      <h1>
+        Decentralized<br>
+        <span class="line-2">Cloud Computing</span>
+      </h1>
+      <p class="hero-sub">
+        Rent compute. List your machine. Pay only for verified uptime. No middleman.
+      </p>
+      <div class="hero-cta">
+        <button class="btn-hero" onclick="goToApp('marketplace')">
+          Browse Machines
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <button class="btn-hero btn-hero-ghost" onclick="goToApp('my-machines')">
+          List Your Machine
+        </button>
+      </div>
+      <p class="hero-note">No account. No contracts. Settlement happens in the escrow contract itself.</p>
+    </div>
+  </section>
+
+  <!-- ================= STATS BAR ================= -->
+  <div class="stats-bar-wrap reveal">
+    <div class="stats-bar">
+      <div class="stats-bar-item">
+        <div class="stats-bar-value" id="heroStatMachines">0</div>
+        <div class="stats-bar-label">Machines Live</div>
+      </div>
+      <div class="stats-bar-item">
+        <div class="stats-bar-value" id="heroStatCheapest">—</div>
+        <div class="stats-bar-label">Cheapest / hr</div>
+      </div>
+      <div class="stats-bar-item">
+        <div class="stats-bar-value" id="heroStatUptime">—</div>
+        <div class="stats-bar-label">Avg Uptime</div>
+      </div>
+      <div class="stats-bar-item">
+        <div class="stats-bar-value">Base Sepolia</div>
+        <div class="stats-bar-label">Network</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= HOW IT WORKS ================= -->
+  <section class="section" id="how">
+    <div class="section-head-center reveal">
+      <span class="section-eyebrow">How it works</span>
+      <h2 class="section-heading">Three steps from idle PC to income</h2>
+      <p class="section-sub">The contract handles listing, escrow, health verification and settlement. There is no platform in between.</p>
+    </div>
+    <div class="steps">
+      <div class="step-card reveal">
+        <span class="step-num">01</span>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 9h4M6 12h7"/>
+          </svg>
+        </div>
+        <h3>List Your Machine</h3>
+        <p>Publish CPU, RAM, storage, OS and an hourly price on-chain, then point the contract at your machine's <code>/health</code> endpoint.</p>
+        <div class="step-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+      </div>
+      <div class="step-card reveal">
+        <span class="step-num">02</span>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>
+          </svg>
+        </div>
+        <h3>Someone Rents It</h3>
+        <p>A renter picks their hours and deposits into escrow. You accept or decline in-app — chat is on-chain, so the negotiation is part of the record.</p>
+        <div class="step-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+      </div>
+      <div class="step-card reveal">
+        <span class="step-num">03</span>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+        <h3>Get Paid for Uptime</h3>
+        <p>Every hour your machine answers its health check, that hour's payment is released to you. Hours it was down are refunded to the renter.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FEATURES ================= -->
+  <section class="section" id="features">
+    <div class="section-head-center reveal">
+      <span class="section-eyebrow">Why NodePool</span>
+      <h2 class="section-heading">Infrastructure you don't have to trust</h2>
+      <p class="section-sub">Akash and Gensyn need massive infrastructure to run their marketplace. NodePool's smart contract <em>is</em> the infrastructure.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        </div>
+        <h3>Pay Only for Uptime</h3>
+        <p>Billing is per verified online hour — a machine that's down simply doesn't bill.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>On-Chain Chat</h3>
+        <p>Negotiation, support and disputes live in the same contract as the money.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        </div>
+        <h3>Instant Refunds</h3>
+        <p>End a rental and the unspent deposit returns in the same transaction. No tickets.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 6v6c0 5 3.8 9.2 9 10 5.2-.8 9-5 9-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <h3>No Middleman</h3>
+        <p>Peer to peer. Escrow is the only intermediary, and it takes no margin.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-7 5 14L17.5 12H21"/></svg>
+        </div>
+        <h3>Health Monitoring</h3>
+        <p>Every check is reported on-chain, building an uptime score anyone can audit.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-9 12h7l-1 8 9-12h-7z"/></svg>
+        </div>
+        <h3>Rialo Native <span class="pill-soon">Coming soon</span></h3>
+        <p>On Rialo the contract makes the HTTPS health call itself — no keeper, no oracle.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PRICING COMPARISON ================= -->
+  <section class="section" id="pricing">
+    <div class="section-head-center reveal">
+      <span class="section-eyebrow">Pricing</span>
+      <h2 class="section-heading">Traditional VPS bills the calendar.<br><span class="gradient-text">NodePool bills the uptime.</span></h2>
+      <p class="section-sub">Same machine, same hour — the difference is what happens when it goes down.</p>
+    </div>
+    <div class="compare-wrap reveal">
+      <div class="compare-scroll">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="col-vps">Traditional VPS</th>
+              <th class="col-np">
+                <span class="th-np">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="url(#g)" stroke-width="2"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+                  NodePool
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="row-label">Billing model</td>
+              <td class="col-vps"><span class="mark mark-bad">✕</span>Flat monthly fee, paid upfront</td>
+              <td class="col-np"><span class="mark mark-good">✓</span>Per hour, only when verified online</td>
+            </tr>
+            <tr>
+              <td class="row-label">When it goes down</td>
+              <td class="col-vps"><span class="mark mark-bad">✕</span>You pay anyway — credits at their discretion</td>
+              <td class="col-np"><span class="mark mark-good">✓</span>Payment pauses that hour, automatically</td>
+            </tr>
+            <tr>
+              <td class="row-label">Refunds</td>
+              <td class="col-vps"><span class="mark mark-bad">✕</span>Support ticket, days of waiting</td>
+              <td class="col-np"><span class="mark mark-good">✓</span>Unused deposit returns on rental end</td>
+            </tr>
+            <tr>
+              <td class="row-label">Uptime proof</td>
+              <td class="col-vps"><span class="mark mark-bad">✕</span>Trust the vendor's status page</td>
+              <td class="col-np"><span class="mark mark-good">✓</span>Every health check recorded on-chain</td>
+            </tr>
+            <tr>
+              <td class="row-label">Commitment</td>
+              <td class="col-vps"><span class="mark mark-bad">✕</span>Monthly or annual lock-in</td>
+              <td class="col-np"><span class="mark mark-good">✓</span>End any time, settle instantly</td>
+            </tr>
+            <tr>
+              <td class="row-label">Who takes a cut</td>
+              <td class="col-vps"><span class="mark mark-bad">✕</span>The cloud provider's margin</td>
+              <td class="col-np"><span class="mark mark-good">✓</span>Nobody — provider and renter, direct</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="compare-footnote">
+        Example: a 0.005 ETH/hr machine rented for 24 hours that drops offline for 3 hours settles at <strong>0.105 ETH</strong> — the 3 offline hours are refunded, not invoiced.
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= APP (marketplace / rentals / chat) ================= -->
+  <section class="app-section" id="app">
+    <div class="app-intro reveal">
+      <span class="section-eyebrow">Live marketplace</span>
+      <h2 class="section-heading">Browse the network</h2>
+      <p class="section-sub">Connect a wallet on Base Sepolia to rent, list, chat and settle. Listings load without a wallet.</p>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="marketplace">Marketplace</button>
+      <button class="nav-tab" data-tab="my-machines">My Machines</button>
+      <button class="nav-tab" data-tab="my-rentals">My Rentals</button>
+      <button class="nav-tab" data-tab="chat">Chat</button>
+      <button class="nav-tab" data-tab="dashboard">Dashboard</button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Marketplace Tab -->
+      <div class="tab-content active" id="marketplace">
+        <div class="section-header">
+          <h2 class="section-title">Available Machines</h2>
+        </div>
+        <div class="filter-bar">
+          <input type="text" class="form-input" placeholder="Search specs..." id="searchInput" oninput="filterMachines()">
+          <select class="form-select" id="osFilter" onchange="filterMachines()">
+            <option value="">All OS</option>
+            <option value="ubuntu">Ubuntu</option>
+            <option value="debian">Debian</option>
+            <option value="macos">macOS</option>
+            <option value="windows">Windows</option>
+          </select>
+          <select class="form-select" id="priceSort" onchange="filterMachines()">
+            <option value="">Sort by Price</option>
+            <option value="low">Low to High</option>
+            <option value="high">High to Low</option>
+          </select>
+        </div>
+        <div class="machine-grid" id="machineGrid">
+          <!-- Machines loaded dynamically -->
+        </div>
+      </div>
+
+      <!-- My Machines Tab -->
+      <div class="tab-content" id="my-machines">
+        <div class="section-header">
+          <h2 class="section-title">My Machines</h2>
+          <button class="btn btn-primary" onclick="openAddMachineModal()">+ Add Machine</button>
+        </div>
+        <div class="machine-grid" id="myMachineGrid">
+          <!-- User's machines loaded dynamically -->
+        </div>
+      </div>
+
+      <!-- My Rentals Tab -->
+      <div class="tab-content" id="my-rentals">
+        <div class="section-header">
+          <h2 class="section-title">My Rentals</h2>
+        </div>
+
+        <!-- Incoming Requests (for providers) -->
+        <div id="incomingRequests" style="margin-bottom: 2rem; display: none;">
+          <h3 style="margin-bottom: 1rem; color: var(--warning);">Pending Requests</h3>
+          <div id="requestsList"></div>
+        </div>
+
+        <!-- Active Rentals -->
+        <div id="rentalsList">
+          <!-- Rentals loaded dynamically -->
+        </div>
+      </div>
+
+      <!-- Chat Tab -->
+      <div class="tab-content" id="chat">
+        <div class="section-header">
+          <h2 class="section-title">Messages</h2>
+        </div>
+        <div class="chat-container">
+          <div class="chat-list">
+            <div class="chat-list-header">Conversations</div>
+            <div id="chatList">
+              <!-- Chat list loaded dynamically -->
+            </div>
+          </div>
+          <div class="chat-window">
+            <div class="chat-header" id="chatHeader">
+              Select a conversation
+            </div>
+            <div class="chat-messages" id="chatMessages">
+              <!-- Messages loaded dynamically -->
+            </div>
+            <div class="chat-input">
+              <input type="text" class="form-input" placeholder="Type a message..." id="messageInput" onkeypress="handleMessageKeypress(event)">
+              <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Tab -->
+      <div class="tab-content" id="dashboard">
+        <div class="section-header">
+          <h2 class="section-title">Dashboard</h2>
+        </div>
+        <div class="stats-grid">
+          <div class="card stat-card">
+            <div class="stat-value" id="statMachines">0</div>
+            <div class="stat-label">Total Machines</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="statRentals">0</div>
+            <div class="stat-label">Active Rentals</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="statUptime">0%</div>
+            <div class="stat-label">Avg Uptime</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="statEarnings">0</div>
+            <div class="stat-label">Your Earnings (ETH)</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
+          <h3 style="margin-bottom: 1rem;">Your Provider Stats</h3>
+          <div class="spec-row">
+            <span class="spec-label">Your Machines</span>
+            <span class="spec-value" id="yourMachineCount">0</span>
+          </div>
+          <div class="spec-row" style="margin-top: 0.75rem;">
+            <span class="spec-label">Total Earnings</span>
+            <span class="spec-value" id="yourTotalEarnings">0 ETH</span>
+          </div>
+          <div class="spec-row" style="margin-top: 0.75rem;">
+            <span class="spec-label">Pending Withdrawal</span>
+            <span class="spec-value" id="yourPendingWithdrawal">0 ETH</span>
+          </div>
+          <button class="btn btn-success" style="margin-top: 1rem; width: 100%;" onclick="withdrawEarnings()">
+            Withdraw Earnings
+          </button>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="footer reveal">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="2.4"/>
+              <circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/>
+              <circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>
+              <path d="M6.5 6.5 10.2 10.2M17.5 6.5 13.8 10.2M6.5 17.5 10.2 13.8M17.5 17.5 13.8 13.8"/>
+            </svg>
+          </div>
+          <span class="logo-text">NodePool</span>
+        </div>
+        <p>A peer-to-peer compute marketplace where the escrow contract — not a company — verifies uptime and releases payment.</p>
+        <span class="footer-tag">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-9 12h7l-1 8 9-12h-7z"/></svg>
+          Built for the Rialo ecosystem
+        </span>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#app" onclick="goToApp('marketplace')">Marketplace</a></li>
+          <li><a href="#app" onclick="goToApp('my-machines')">List a machine</a></li>
+          <li><a href="#app" onclick="goToApp('my-rentals')">My rentals</a></li>
+          <li><a href="#app" onclick="goToApp('dashboard')">Dashboard</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Learn</h4>
+        <ul>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing model</a></li>
+          <li><a href="#app" onclick="goToApp('chat')">On-chain chat</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Network</h4>
+        <ul>
+          <li><a id="footerContractLink" href="https://sepolia.basescan.org" target="_blank" rel="noopener">Contract on BaseScan</a></li>
+          <li><a href="https://sepolia.base.org" target="_blank" rel="noopener">Base Sepolia RPC</a></li>
+          <li><a href="https://www.alchemy.com/faucets/base-sepolia" target="_blank" rel="noopener">Testnet faucet</a></li>
+          <li><a href="#top">Rialo mainnet — soon</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 NodePool — hackathon build, testnet only.</span>
+      <span class="footer-addr" id="footerAddress"></span>
+    </div>
+  </footer>
+
+  <!-- Rental Modal -->
+  <div class="modal-overlay" id="rentalModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Rent Machine</h3>
+        <button class="modal-close" onclick="closeModal('rentalModal')">&times;</button>
+      </div>
+      <div id="rentalMachineDetails"></div>
+      <form onsubmit="submitRental(event)">
+        <input type="hidden" id="rentalMachineId">
+        <div class="form-group">
+          <label class="form-label">Hours to Rent</label>
+          <input type="number" class="form-input" id="rentalHours" min="1" value="1" required oninput="updateRentalTotal()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message to Provider (optional)</label>
+          <textarea class="form-textarea" id="rentalMessage" placeholder="Describe your use case..."></textarea>
+        </div>
+        <div class="spec-row" style="margin-bottom: 1rem;">
+          <span class="spec-label">Total Cost</span>
+          <span class="spec-value" id="rentalTotal">0 ETH</span>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          Confirm &amp; Deposit
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Machine Modal -->
+  <div class="modal-overlay" id="addMachineModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Add Machine</h3>
+        <button class="modal-close" onclick="closeModal('addMachineModal')">&times;</button>
+      </div>
+      <form onsubmit="submitMachine(event)">
+        <div class="form-group">
+          <label class="form-label">CPU</label>
+          <input type="text" class="form-input" id="machineCpu" placeholder="e.g., AMD Ryzen 9 5900X" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">RAM</label>
+          <input type="text" class="form-input" id="machineRam" placeholder="e.g., 32GB DDR4" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Storage</label>
+          <input type="text" class="form-input" id="machineStorage" placeholder="e.g., 1TB NVMe SSD" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Operating System</label>
+          <input type="text" class="form-input" id="machineOs" placeholder="e.g., Ubuntu 22.04" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Price per Hour (ETH)</label>
+          <input type="number" class="form-input" id="machinePrice" step="0.0001" min="0.0001" placeholder="0.005" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Health Endpoint URL</label>
+          <input type="url" class="form-input" id="machineEndpoint" placeholder="http://your-ip:8080/health" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          List Machine
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // Contract configuration - UPDATE THIS AFTER DEPLOYMENT
+    // Deployed to Base Sepolia (chainId 84532)
+    const CONTRACT_ADDRESS = '0xadC135620B239946321EcF57E7d424FA9d165850';
+    const CHAIN_ID_HEX = '0x14a34'; // 84532
+    const RPC_URL = 'https://sepolia.base.org';
+    const EXPLORER_URL = 'https://sepolia.basescan.org';
+    const CHAIN_PARAMS = {
+      chainId: CHAIN_ID_HEX,
+      chainName: 'Base Sepolia',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: [RPC_URL],
+      blockExplorerUrls: [EXPLORER_URL],
+    };
+    const CONTRACT_ABI = [
+      "function machineCount() view returns (uint256)",
+      "function rentalCount() view returns (uint256)",
+      "function machines(uint256) view returns (uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt)",
+      "function rentals(uint256) view returns (uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage)",
+      "function pendingWithdrawals(address) view returns (uint256)",
+      "function getAvailableMachines() view returns (uint256[])",
+      "function getMyMachines(address) view returns (uint256[])",
+      "function getMyRentals(address) view returns (uint256[])",
+      "function getMachine(uint256) view returns (tuple(uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt))",
+      "function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))",
+      "function getMessages(uint256) view returns (uint256[])",
+      "function messages(uint256) view returns (uint256 rentalId, address sender, string text, uint256 timestamp)",
+      "function getProviderStats(address) view returns (uint256 totalMachines, uint256 totalEarnings, uint256 avgUptimeScore)",
+      "function listMachine(string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint) returns (uint256)",
+      "function updateMachine(uint256 machineId, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable)",
+      "function delistMachine(uint256 machineId)",
+      "function requestRental(uint256 machineId, uint256 rentalHours, string message) payable returns (uint256)",
+      "function acceptRental(uint256 rentalId)",
+      "function declineRental(uint256 rentalId)",
+      "function endRental(uint256 rentalId)",
+      "function disputeRental(uint256 rentalId, string reason)",
+      "function sendMessage(uint256 rentalId, string text)",
+      "function withdrawEarnings()",
+      "event MachineCreated(uint256 indexed machineId, address indexed owner, string cpu, string ram, uint256 pricePerHour)",
+      "event RentalRequested(uint256 indexed rentalId, uint256 indexed machineId, address indexed renter, uint256 deposit, uint256 hours_)",
+      "event RentalAccepted(uint256 indexed rentalId, uint256 startTime)",
+      "event RentalDeclined(uint256 indexed rentalId)",
+      "event RentalEnded(uint256 indexed rentalId, uint256 hoursPaid, uint256 refund)",
+      "event MessageSent(uint256 indexed messageId, uint256 indexed rentalId, address indexed sender, string text)"
+    ];
+
+    // State
+    let provider = null;
+    let signer = null;
+    let contract = null;
+    let readContract = null;
+    let userAddress = null;
+    let machines = [];
+    let currentRentalMachine = null;
+    let currentChatRentalId = null;
+
+    // Read-only contract so the landing stats and marketplace render without a wallet
+    function getReader() {
+      if (contract) return contract;
+      if (!readContract) {
+        const readProvider = new ethers.JsonRpcProvider(RPC_URL);
+        readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+      }
+      return readContract;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      initTabs();
+      initReveal();
+      initFooterLinks();
+      checkWalletConnection();
+      // Public data doesn't need a wallet — load it immediately
+      loadLandingStats();
+      loadMarketplace();
+      loadDashboard();
+    });
+
+    /* ---------- Landing page behaviour ---------- */
+
+    // Jump into the app section and activate a tab (used by hero CTAs + footer links)
+    function goToApp(tabName) {
+      switchTab(tabName || 'marketplace');
+      document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      const tabBtn = document.querySelector(`.nav-tab[data-tab="${tabName}"]`);
+      const panel = document.getElementById(tabName);
+      if (tabBtn) tabBtn.classList.add('active');
+      if (panel) panel.classList.add('active');
+    }
+
+    // Scroll-triggered fade/rise for landing sections
+    function initReveal() {
+      const items = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) {
+        items.forEach(el => el.classList.add('visible'));
+        return;
+      }
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          // Stagger siblings slightly so grids cascade instead of popping at once
+          const siblings = Array.from(entry.target.parentElement.children).filter(el => el.classList.contains('reveal'));
+          const delay = Math.max(0, siblings.indexOf(entry.target)) * 90;
+          setTimeout(() => entry.target.classList.add('visible'), delay);
+          observer.unobserve(entry.target);
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+
+      items.forEach(el => observer.observe(el));
+    }
+
+    function initFooterLinks() {
+      const link = document.getElementById('footerContractLink');
+      link.href = `${EXPLORER_URL}/address/${CONTRACT_ADDRESS}`;
+      document.getElementById('footerAddress').textContent = CONTRACT_ADDRESS;
+    }
+
+    // Count-up animation for the hero stats bar
+    function animateNumber(el, to, format) {
+      const duration = 900;
+      const start = performance.now();
+      function frame(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        el.textContent = format(to * eased);
+        if (t < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    // Hero stats come straight from the contract — machine count, cheapest price, avg uptime
+    async function loadLandingStats() {
+      try {
+        const c = getReader();
+        const ids = await c.getAvailableMachines();
+        const live = await Promise.all(ids.map(id => c.getMachine(id)));
+
+        animateNumber(
+          document.getElementById('heroStatMachines'),
+          live.length,
+          v => Math.round(v).toString()
+        );
+
+        if (live.length > 0) {
+          const cheapest = live.reduce((min, m) => (m.pricePerHour < min ? m.pricePerHour : min), live[0].pricePerHour);
+          document.getElementById('heroStatCheapest').textContent = `${trimEth(ethers.formatEther(cheapest))} ETH`;
+
+          const avg = live.reduce((sum, m) => sum + Number(m.uptimeScore), 0) / live.length / 100;
+          animateNumber(
+            document.getElementById('heroStatUptime'),
+            avg,
+            v => v.toFixed(1) + '%'
+          );
+        } else {
+          document.getElementById('heroStatCheapest').textContent = '—';
+          document.getElementById('heroStatUptime').textContent = '—';
+        }
+      } catch (err) {
+        // Keep the placeholder values rather than showing a broken bar
+        console.error('Landing stats unavailable:', err);
+      }
+    }
+
+    // 0.0030000 -> 0.003
+    function trimEth(value) {
+      return value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
+    }
+
+    /* ---------- App ---------- */
+
+    // Tab Navigation
+    function initTabs() {
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+      });
+    }
+
+    // Wallet Connection
+    async function checkWalletConnection() {
+      if (typeof window.ethereum !== 'undefined') {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length > 0) {
+          await connectWallet();
+        }
+      }
+    }
+
+    // Make sure the wallet is on Base Sepolia — the contract only lives there
+    async function ensureBaseSepolia() {
+      const current = await window.ethereum.request({ method: 'eth_chainId' });
+      if (current === CHAIN_ID_HEX) return true;
+
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: CHAIN_ID_HEX }],
+        });
+        return true;
+      } catch (err) {
+        // 4902 = chain not known to the wallet yet, so add it
+        if (err.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [CHAIN_PARAMS],
+          });
+          return true;
+        }
+        showToast('Please switch to Base Sepolia', 'error');
+        return false;
+      }
+    }
+
+    async function connectWallet() {
+      if (typeof window.ethereum === 'undefined') {
+        showToast('Please install MetaMask!', 'error');
+        return;
+      }
+
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (!(await ensureBaseSepolia())) return;
+
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        userAddress = await signer.getAddress();
+
+        // Update button
+        const btn = document.getElementById('connectBtn');
+        btn.textContent = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+        btn.classList.add('connected');
+
+        // Initialize contract
+        if (CONTRACT_ADDRESS) {
+          contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+          loadAllData();
+        } else {
+          showToast('Contract address not set. Deploy the contract first.', 'warning');
+        }
+
+        // Listen for account changes
+        window.ethereum.on('accountsChanged', (accounts) => {
+          if (accounts.length === 0) {
+            location.reload();
+          } else {
+            connectWallet();
+          }
+        });
+
+        // A network switch invalidates the provider/contract — start clean
+        window.ethereum.on('chainChanged', () => location.reload());
+
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to connect wallet', 'error');
+      }
+    }
+
+    // Load All Data
+    async function loadAllData() {
+      await Promise.all([
+        loadMarketplace(),
+        loadMyMachines(),
+        loadMyRentals(),
+        loadDashboard(),
+        loadChatList(),
+        loadLandingStats()
+      ]);
+    }
+
+    // Marketplace
+    async function loadMarketplace() {
+      const c = getReader();
+      if (!c) return;
+
+      const grid = document.getElementById('machineGrid');
+      grid.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+
+      try {
+        const machineIds = await c.getAvailableMachines();
+        machines = [];
+
+        for (const id of machineIds) {
+          const machine = await c.getMachine(id);
+          machines.push(machine);
+        }
+
+        renderMachines(machines, grid, true);
+      } catch (err) {
+        console.error(err);
+        grid.innerHTML = '<div class="empty-state">Failed to load machines</div>';
+      }
+    }
+
+    function renderMachines(machineList, container, showRentBtn = false) {
+      if (machineList.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">&#128421;</div>
+            <p>No machines available</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = machineList.map(m => `
+        <div class="card machine-card" data-id="${m.id}">
+          <span class="os-badge">${m.os}</span>
+          <div class="machine-specs">
+            <div class="spec-row">
+              <span class="spec-label">CPU</span>
+              <span class="spec-value">${m.cpu}</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">RAM</span>
+              <span class="spec-value">${m.ram}</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Storage</span>
+              <span class="spec-value">${m.storage_}</span>
+            </div>
+          </div>
+          <div class="machine-footer">
+            <div>
+              <div class="price">${ethers.formatEther(m.pricePerHour)} <span>ETH/hr</span></div>
+              <div class="uptime-badge">${(Number(m.uptimeScore) / 100).toFixed(1)}% uptime</div>
+            </div>
+            ${showRentBtn ? `<button class="btn btn-primary" onclick="openRentalModal(${m.id})">Rent</button>` : ''}
+            ${!showRentBtn ? `
+              <div>
+                <button class="btn btn-secondary" onclick="editMachine(${m.id})" style="margin-right: 0.5rem;">Edit</button>
+                <button class="btn btn-danger" onclick="delistMachine(${m.id})">Delist</button>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterMachines() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const osFilter = document.getElementById('osFilter').value.toLowerCase();
+      const priceSort = document.getElementById('priceSort').value;
+
+      let filtered = machines.filter(m => {
+        const matchesSearch = m.cpu.toLowerCase().includes(search) ||
+                             m.ram.toLowerCase().includes(search) ||
+                             m.storage_.toLowerCase().includes(search);
+        const matchesOs = !osFilter || m.os.toLowerCase().includes(osFilter);
+        return matchesSearch && matchesOs;
+      });
+
+      if (priceSort === 'low') {
+        filtered.sort((a, b) => Number(a.pricePerHour - b.pricePerHour));
+      } else if (priceSort === 'high') {
+        filtered.sort((a, b) => Number(b.pricePerHour - a.pricePerHour));
+      }
+
+      renderMachines(filtered, document.getElementById('machineGrid'), true);
+    }
+
+    // My Machines
+    async function loadMyMachines() {
+      if (!contract || !userAddress) return;
+
+      const grid = document.getElementById('myMachineGrid');
+      grid.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+
+      try {
+        const machineIds = await contract.getMyMachines(userAddress);
+        const myMachines = [];
+
+        for (const id of machineIds) {
+          const machine = await contract.getMachine(id);
+          myMachines.push(machine);
+        }
+
+        if (myMachines.length === 0) {
+          grid.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">&#128421;</div>
+              <p>You haven't listed any machines yet</p>
+            </div>
+          `;
+          return;
+        }
+
+        renderMachines(myMachines, grid, false);
+      } catch (err) {
+        console.error(err);
+        grid.innerHTML = '<div class="empty-state">Failed to load your machines</div>';
+      }
+    }
+
+    function openAddMachineModal() {
+      if (!userAddress) {
+        showToast('Please connect your wallet first', 'warning');
+        return;
+      }
+      document.getElementById('addMachineModal').classList.add('active');
+    }
+
+    async function submitMachine(event) {
+      event.preventDefault();
+      if (!contract) return;
+
+      const cpu = document.getElementById('machineCpu').value;
+      const ram = document.getElementById('machineRam').value;
+      const storage = document.getElementById('machineStorage').value;
+      const os = document.getElementById('machineOs').value;
+      const price = ethers.parseEther(document.getElementById('machinePrice').value);
+      const endpoint = document.getElementById('machineEndpoint').value;
+
+      try {
+        showToast('Listing machine...', 'warning');
+        const tx = await contract.listMachine(cpu, ram, storage, os, price, endpoint);
+        await tx.wait();
+        showToast('Machine listed successfully!', 'success');
+        closeModal('addMachineModal');
+        loadMyMachines();
+        loadMarketplace();
+        loadDashboard();
+        loadLandingStats();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to list machine', 'error');
+      }
+    }
+
+    async function delistMachine(machineId) {
+      if (!confirm('Are you sure you want to delist this machine?')) return;
+
+      try {
+        showToast('Delisting machine...', 'warning');
+        const tx = await contract.delistMachine(machineId);
+        await tx.wait();
+        showToast('Machine delisted', 'success');
+        loadMyMachines();
+        loadMarketplace();
+        loadLandingStats();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to delist machine', 'error');
+      }
+    }
+
+    // Rentals
+    function openRentalModal(machineId) {
+      if (!userAddress) {
+        showToast('Please connect your wallet first', 'warning');
+        return;
+      }
+
+      currentRentalMachine = machines.find(m => Number(m.id) === machineId);
+      if (!currentRentalMachine) return;
+
+      document.getElementById('rentalMachineId').value = machineId;
+      document.getElementById('rentalMachineDetails').innerHTML = `
+        <div class="card" style="margin-bottom: 1rem;">
+          <div class="spec-row">
+            <span class="spec-label">CPU</span>
+            <span class="spec-value">${currentRentalMachine.cpu}</span>
+          </div>
+          <div class="spec-row" style="margin-top: 0.5rem;">
+            <span class="spec-label">RAM</span>
+            <span class="spec-value">${currentRentalMachine.ram}</span>
+          </div>
+          <div class="spec-row" style="margin-top: 0.5rem;">
+            <span class="spec-label">Price</span>
+            <span class="spec-value">${ethers.formatEther(currentRentalMachine.pricePerHour)} ETH/hr</span>
+          </div>
+        </div>
+      `;
+      updateRentalTotal();
+      document.getElementById('rentalModal').classList.add('active');
+    }
+
+    function updateRentalTotal() {
+      if (!currentRentalMachine) return;
+      const hours = parseInt(document.getElementById('rentalHours').value) || 1;
+      const total = ethers.formatEther(currentRentalMachine.pricePerHour * BigInt(hours));
+      document.getElementById('rentalTotal').textContent = `${total} ETH`;
+    }
+
+    async function submitRental(event) {
+      event.preventDefault();
+      if (!contract) return;
+
+      const machineId = document.getElementById('rentalMachineId').value;
+      const hours = document.getElementById('rentalHours').value;
+      const message = document.getElementById('rentalMessage').value;
+      const deposit = currentRentalMachine.pricePerHour * BigInt(hours);
+
+      try {
+        showToast('Submitting rental request...', 'warning');
+        const tx = await contract.requestRental(machineId, hours, message, { value: deposit });
+        await tx.wait();
+        showToast('Rental request sent! Waiting for provider approval.', 'success');
+        closeModal('rentalModal');
+        loadMyRentals();
+        loadMarketplace();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to submit rental request', 'error');
+      }
+    }
+
+    async function loadMyRentals() {
+      if (!contract || !userAddress) return;
+
+      const rentalsList = document.getElementById('rentalsList');
+      const requestsList = document.getElementById('requestsList');
+      const incomingSection = document.getElementById('incomingRequests');
+
+      rentalsList.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+
+      try {
+        const rentalCount = await contract.rentalCount();
+        const incomingRequests = [];
+        const userRentals = [];
+
+        for (let i = 1; i <= rentalCount; i++) {
+          const rental = await contract.getRental(i);
+          const machine = await contract.getMachine(rental.machineId);
+
+          // Check if this is an incoming request for user's machine
+          if (machine.owner.toLowerCase() === userAddress.toLowerCase() && rental.status === 0n) {
+            incomingRequests.push({ rental, machine });
+          }
+
+          // Check if user is the renter
+          if (rental.renter.toLowerCase() === userAddress.toLowerCase()) {
+            userRentals.push({ rental, machine });
+          }
+        }
+
+        // Render incoming requests
+        if (incomingRequests.length > 0) {
+          incomingSection.style.display = 'block';
+          requestsList.innerHTML = incomingRequests.map(({ rental, machine }) => `
+            <div class="card rental-card">
+              <div class="rental-header">
+                <span>${machine.cpu}</span>
+                <span class="rental-status status-requested">Pending</span>
+              </div>
+              <p style="color: var(--text-secondary); margin-bottom: 1rem;">"${rental.initialMessage || 'No message'}"</p>
+              <div class="spec-row">
+                <span class="spec-label">Duration</span>
+                <span class="spec-value">${rental.totalHours} hours</span>
+              </div>
+              <div class="spec-row" style="margin-top: 0.5rem;">
+                <span class="spec-label">Deposit</span>
+                <span class="spec-value">${ethers.formatEther(rental.deposit)} ETH</span>
+              </div>
+              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn btn-success" onclick="acceptRental(${rental.id})">Accept</button>
+                <button class="btn btn-danger" onclick="declineRental(${rental.id})">Decline</button>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          incomingSection.style.display = 'none';
+        }
+
+        // Render user's rentals
+        if (userRentals.length === 0) {
+          rentalsList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">&#128203;</div>
+              <p>No rentals yet</p>
+            </div>
+          `;
+          return;
+        }
+
+        const statusMap = ['Requested', 'Active', 'Completed', 'Disputed', 'Cancelled'];
+        const statusClassMap = ['requested', 'active', 'completed', 'disputed', 'cancelled'];
+
+        rentalsList.innerHTML = userRentals.map(({ rental, machine }) => {
+          const status = Number(rental.status);
+          const progress = rental.totalHours > 0 ? (Number(rental.hoursVerified) / Number(rental.totalHours)) * 100 : 0;
+
+          return `
+            <div class="card rental-card">
+              <div class="rental-header">
+                <span>${machine.cpu} | ${machine.ram}</span>
+                <span class="rental-status status-${statusClassMap[status]}">${statusMap[status]}</span>
+              </div>
+              ${status === 1 ? `
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: ${progress}%"></div>
+                </div>
+                <div class="spec-row">
+                  <span class="spec-label">Hours Verified</span>
+                  <span class="spec-value">${rental.hoursVerified} / ${rental.totalHours}</span>
+                </div>
+              ` : ''}
+              <div class="spec-row" style="margin-top: 0.5rem;">
+                <span class="spec-label">Deposit Remaining</span>
+                <span class="spec-value">${ethers.formatEther(rental.deposit)} ETH</span>
+              </div>
+              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                ${status === 1 ? `<button class="btn btn-danger" onclick="endRental(${rental.id})">End Rental</button>` : ''}
+                <button class="btn btn-secondary" onclick="openChat(${rental.id})">Chat</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        console.error(err);
+        rentalsList.innerHTML = '<div class="empty-state">Failed to load rentals</div>';
+      }
+    }
+
+    async function acceptRental(rentalId) {
+      try {
+        showToast('Accepting rental...', 'warning');
+        const tx = await contract.acceptRental(rentalId);
+        await tx.wait();
+        showToast('Rental accepted!', 'success');
+        loadMyRentals();
+        loadMyMachines();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to accept rental', 'error');
+      }
+    }
+
+    async function declineRental(rentalId) {
+      try {
+        showToast('Declining rental...', 'warning');
+        const tx = await contract.declineRental(rentalId);
+        await tx.wait();
+        showToast('Rental declined, deposit refunded', 'success');
+        loadMyRentals();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to decline rental', 'error');
+      }
+    }
+
+    async function endRental(rentalId) {
+      if (!confirm('Are you sure you want to end this rental?')) return;
+
+      try {
+        showToast('Ending rental...', 'warning');
+        const tx = await contract.endRental(rentalId);
+        await tx.wait();
+        showToast('Rental ended', 'success');
+        loadMyRentals();
+        loadMarketplace();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to end rental', 'error');
+      }
+    }
+
+    // Chat
+    async function loadChatList() {
+      if (!contract || !userAddress) return;
+
+      const chatList = document.getElementById('chatList');
+
+      try {
+        const rentalCount = await contract.rentalCount();
+        const allRentalIds = new Set();
+
+        for (let i = 1; i <= rentalCount; i++) {
+          const rental = await contract.getRental(i);
+          const machine = await contract.getMachine(rental.machineId);
+
+          // Include if user is renter or provider
+          if (rental.renter.toLowerCase() === userAddress.toLowerCase() ||
+              machine.owner.toLowerCase() === userAddress.toLowerCase()) {
+            allRentalIds.add(Number(rental.id));
+          }
+        }
+
+        if (allRentalIds.size === 0) {
+          chatList.innerHTML = '<div style="padding: 1rem; color: var(--text-muted);">No conversations</div>';
+          return;
+        }
+
+        const chatItems = [];
+        for (const id of allRentalIds) {
+          const rental = await contract.getRental(id);
+          const machine = await contract.getMachine(rental.machineId);
+          chatItems.push({ rental, machine });
+        }
+
+        chatList.innerHTML = chatItems.map(({ rental, machine }) => `
+          <div class="chat-item" onclick="openChat(${rental.id})">
+            <div class="chat-item-title">${machine.cpu}</div>
+            <div class="chat-item-preview">Rental #${rental.id}</div>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        console.error(err);
+        chatList.innerHTML = '<div style="padding: 1rem; color: var(--text-muted);">Failed to load chats</div>';
+      }
+    }
+
+    async function openChat(rentalId) {
+      currentChatRentalId = rentalId;
+
+      // Switch to chat tab and bring it into view
+      switchTab('chat');
+      document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Mark active chat
+      document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+
+      // Load chat header and messages
+      try {
+        const rental = await contract.getRental(rentalId);
+        const machine = await contract.getMachine(rental.machineId);
+
+        document.getElementById('chatHeader').innerHTML = `
+          <strong>${machine.cpu}</strong>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Rental #${rentalId} · ${ethers.formatEther(machine.pricePerHour)} ETH/hr · ${rental.totalHours}h</span>
+        `;
+
+        await loadMessages(rentalId);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadMessages(rentalId) {
+      const messagesContainer = document.getElementById('chatMessages');
+
+      try {
+        const messageIds = await contract.getMessages(rentalId);
+
+        if (messageIds.length === 0) {
+          messagesContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted);">No messages yet</div>';
+          return;
+        }
+
+        const msgs = [];
+        for (const id of messageIds) {
+          const msg = await contract.messages(id);
+          msgs.push(msg);
+        }
+
+        messagesContainer.innerHTML = msgs.map(msg => {
+          const isSent = msg.sender.toLowerCase() === userAddress.toLowerCase();
+          const time = new Date(Number(msg.timestamp) * 1000).toLocaleTimeString();
+          return `
+            <div class="message ${isSent ? 'sent' : 'received'}">
+              ${msg.text}
+              <div class="message-time">${time}</div>
+            </div>
+          `;
+        }).join('');
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function sendMessage() {
+      if (!currentChatRentalId || !contract) return;
+
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      try {
+        input.value = '';
+        const tx = await contract.sendMessage(currentChatRentalId, text);
+        await tx.wait();
+        loadMessages(currentChatRentalId);
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to send message', 'error');
+      }
+    }
+
+    function handleMessageKeypress(event) {
+      if (event.key === 'Enter') {
+        sendMessage();
+      }
+    }
+
+    // Dashboard
+    async function loadDashboard() {
+      const c = getReader();
+      if (!c) return;
+
+      try {
+        const machineCount = await c.machineCount();
+        const rentalCount = await c.rentalCount();
+
+        document.getElementById('statMachines').textContent = machineCount.toString();
+        document.getElementById('statRentals').textContent = rentalCount.toString();
+
+        // Calculate network uptime average
+        let totalUptime = 0n;
+        let machineCountNum = Number(machineCount);
+        for (let i = 1; i <= machineCountNum; i++) {
+          try {
+            const machine = await c.getMachine(i);
+            totalUptime += machine.uptimeScore;
+          } catch (e) {}
+        }
+        const avgUptime = machineCountNum > 0 ? Number(totalUptime) / machineCountNum / 100 : 0;
+        document.getElementById('statUptime').textContent = avgUptime.toFixed(1) + '%';
+
+        if (contract && userAddress) {
+          const stats = await contract.getProviderStats(userAddress);
+          const pending = await contract.pendingWithdrawals(userAddress);
+
+          document.getElementById('yourMachineCount').textContent = stats.totalMachines.toString();
+          document.getElementById('yourTotalEarnings').textContent = ethers.formatEther(stats.totalEarnings) + ' ETH';
+          document.getElementById('yourPendingWithdrawal').textContent = ethers.formatEther(pending) + ' ETH';
+          document.getElementById('statEarnings').textContent = ethers.formatEther(stats.totalEarnings);
+        }
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function withdrawEarnings() {
+      if (!contract) return;
+
+      try {
+        const pending = await contract.pendingWithdrawals(userAddress);
+        if (pending === 0n) {
+          showToast('No earnings to withdraw', 'warning');
+          return;
+        }
+
+        showToast('Withdrawing earnings...', 'warning');
+        const tx = await contract.withdrawEarnings();
+        await tx.wait();
+        showToast('Earnings withdrawn!', 'success');
+        loadDashboard();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to withdraw', 'error');
+      }
+    }
+
+    // Utilities
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = message;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Close modal on outside click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.classList.remove('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

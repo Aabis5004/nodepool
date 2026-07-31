@@ -1,0 +1,20 @@
+{
+  "name": "autopay",
+  "version": "1.0.0",
+  "description": "Self-executing subscription protocol on Base Sepolia",
+  "license": "MIT",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "dev:local": "bash scripts/dev-local.sh",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy": "hardhat run scripts/deploy.js --network baseSepolia",
+    "verify": "hardhat verify --network baseSepolia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.17",
+    "dotenv": "^16.4.7"
+  }
+}
