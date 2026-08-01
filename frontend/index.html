@@ -2235,7 +2235,14 @@
       </div>
       <div style="font-size:0.72rem;color:#8888a6;margin-top:8px">Send Base Sepolia ETH here from MetaMask, an exchange, or a faucet.</div>
     </div>
-    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px">
+    <!-- Only shown when signed in with the Privy embedded wallet and MetaMask is installed —
+         lets that MetaMask account fund the embedded wallet in one click instead of a manual copy/paste. -->
+    <div id="wmMetaMaskDeposit" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin-top:16px;display:none">
+      <div style="font-size:0.75rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Deposit from MetaMask</div>
+      <input class="form-input" id="wmDepositAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
+      <button class="btn btn-secondary" style="width:100%" onclick="depositFromMetaMask()" id="wmDepositBtn">Send from MetaMask to this wallet</button>
+    </div>
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin-top:16px">
       <div style="font-size:0.75rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Send / Withdraw</div>
       <input class="form-input" id="wmSendTo" placeholder="Recipient address (0x...)" style="margin-bottom:8px">
       <input class="form-input" id="wmSendAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
@@ -3280,7 +3287,46 @@
     }
     function openWalletModal() {
       const m = document.getElementById('walletModal');
-      if (m) { m.classList.add('active'); document.getElementById('wmAddress').textContent = userAddress; refreshBalance(); refreshWalletModalBalance(); }
+      if (m) {
+        m.classList.add('active');
+        document.getElementById('wmAddress').textContent = userAddress;
+        refreshBalance(); refreshWalletModalBalance();
+        const depositSection = document.getElementById('wmMetaMaskDeposit');
+        if (depositSection) {
+          depositSection.style.display = (authMode === 'privy' && typeof window.ethereum !== 'undefined') ? 'block' : 'none';
+        }
+      }
+    }
+
+    // Lets a MetaMask account fund the signed-in Privy embedded wallet directly, on Base Sepolia.
+    async function depositFromMetaMask() {
+      if (typeof window.ethereum === 'undefined') { showToast('MetaMask not detected', 'error'); return; }
+      const amount = document.getElementById('wmDepositAmount').value.trim();
+      if (!amount || Number(amount) <= 0) { showToast('Enter an amount', 'error'); return; }
+
+      const btn = document.getElementById('wmDepositBtn');
+      if (btn) btn.disabled = true;
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (!(await ensureBaseSepolia())) return;
+
+        const metamaskProvider = new ethers.BrowserProvider(window.ethereum);
+        const metamaskSigner = await metamaskProvider.getSigner();
+
+        showToast('Confirm the deposit in MetaMask...', 'warning');
+        const tx = await metamaskSigner.sendTransaction({ to: userAddress, value: ethers.parseEther(amount) });
+        showToast('Deposit sent — waiting for confirmation...', 'warning');
+        await tx.wait();
+
+        document.getElementById('wmDepositAmount').value = '';
+        showToast('Deposit confirmed', 'success');
+        refreshBalance();
+        refreshWalletModalBalance();
+      } catch (err) {
+        showToast(err.reason || err.message || 'Deposit failed', 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
     function closeWalletModal() {
       const m = document.getElementById('walletModal');
