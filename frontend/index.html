@@ -3455,9 +3455,39 @@
     }
 
     // The iframe boots asynchronously; ping() completes the ready handshake (or reports it never came).
+    // On a fresh page load the iframe has had almost no time to boot before restore calls this,
+    // so one reload+retry before giving up avoids failing on a cold-start race.
     async function ensureEmbeddedWalletReady(client, timeoutMs = 20000) {
-      const ready = await client.embeddedWallet.ping(timeoutMs);
+      console.log('[Privy] ensureEmbeddedWalletReady: pinging embedded wallet iframe...');
+      let ready = await client.embeddedWallet.ping(timeoutMs);
+      if (!ready) {
+        console.log('[Privy] ensureEmbeddedWalletReady: ping timed out, reloading iframe and retrying once...');
+        client.embeddedWallet.reload();
+        ready = await client.embeddedWallet.ping(timeoutMs);
+      }
       if (!ready) throw new Error('Embedded wallet did not respond. Reload the page and try again.');
+      console.log('[Privy] ensureEmbeddedWalletReady: iframe responded');
+    }
+
+    // client.initialize() can resolve before the SDK's own background session-refresh (exchanging
+    // the persisted refresh token for a fresh access token) has actually landed — an immediate
+    // user.get() call can then throw as if there's no session at all, even though one genuinely
+    // exists. A spent login code coming back "already linked" is proof of that exact race. Retry
+    // briefly instead of concluding the user is logged out.
+    async function getPrivyUserWithRetry(client, attempts = 4, delayMs = 400) {
+      let lastErr;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const { user } = await client.user.get();
+          if (user) return user;
+          lastErr = new Error('user.get() resolved with no user');
+        } catch (err) {
+          lastErr = err;
+        }
+        console.log(`[Privy] getPrivyUserWithRetry: attempt ${i + 1}/${attempts} failed —`, lastErr && lastErr.message);
+        if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
+      }
+      throw lastErr;
     }
 
     function showEmailStep(step) {
@@ -3474,12 +3504,29 @@
       });
     }
 
-    function openEmailModal() {
+    async function openEmailModal() {
       showEmailStep('emailStep');
       document.getElementById('emailInput').value = '';
       document.getElementById('emailCodeInput').value = '';
       setEmailAuthBusy(false);
       document.getElementById('emailModal').classList.add('active');
+
+      if (userAddress) return; // already signed in
+
+      // The header can lag an active session (see tryRestorePrivySession) — check for one before
+      // starting a fresh send-code flow. Re-logging-in for an email already linked to this
+      // session fails with a 422 "already linked" from Privy instead of just working.
+      try {
+        const client = await ensurePrivyReady();
+        const user = await getPrivyUserWithRetry(client, 2, 300);
+        if (userAddress) return;
+        console.log('[Privy] openEmailModal: existing session found — restoring instead of sending a new code');
+        const emailAccount = (user.linked_accounts || []).find(a => a.type === 'email');
+        await finishPrivyLogin(client, user, emailAccount ? emailAccount.address : null);
+        closeModal('emailModal');
+      } catch (err) {
+        console.log('[Privy] openEmailModal: no existing session —', err && err.message);
+      }
     }
 
     async function sendEmailCode(event) {
@@ -3521,9 +3568,9 @@
         client = await ensurePrivyReady();
         // If already authenticated with this email, reuse the session instead of re-linking
         try {
-          const existing = await client.user.get();
-          const hasEmail = existing && existing.user && (existing.user.linked_accounts || []).some(a => a.type === 'email' && a.address === pendingEmail);
-          if (hasEmail) { user = existing.user; }
+          const existing = await getPrivyUserWithRetry(client, 2, 300);
+          const hasEmail = (existing.linked_accounts || []).some(a => a.type === 'email' && a.address === pendingEmail);
+          if (hasEmail) { user = existing; }
         } catch (e) { /* no session, proceed to fresh login */ }
         if (!user) {
           const result = await client.auth.email.loginWithCode(pendingEmail, code);
@@ -3574,19 +3621,23 @@
     async function finishPrivyLogin(client, user, email) {
       const { getUserEmbeddedEthereumWallet, getEntropyDetailsFromAccount } = window.PrivyCore;
 
+      console.log('[Privy] finishPrivyLogin: waiting for embedded wallet iframe handshake...');
       // The wallet lives in a cross-origin iframe — don't touch it until the handshake lands
       await ensureEmbeddedWalletReady(client);
 
       let account = getUserEmbeddedEthereumWallet(user);
       if (!account) {
+        console.log('[Privy] finishPrivyLogin: user has no embedded wallet yet, creating one...');
         // create() resolves to an AuthenticatedUser envelope, not the user itself
         const created = await client.embeddedWallet.create({});
         account = getUserEmbeddedEthereumWallet(created.user);
       }
       if (!account) throw new Error('Could not create embedded wallet');
+      console.log('[Privy] finishPrivyLogin: wallet account resolved —', account.address);
 
       const { entropyId, entropyIdVerifier } = getEntropyDetailsFromAccount(account);
       const eip1193Provider = await client.embeddedWallet.getEthereumProvider({ wallet: account, entropyId, entropyIdVerifier });
+      console.log('[Privy] finishPrivyLogin: got EIP-1193 provider, wiring up signer + contract');
 
       provider = new ethers.BrowserProvider(eip1193Provider);
       signer = await provider.getSigner();
@@ -3598,22 +3649,42 @@
       renderWalletControls();
       loadAllData();
       showToast('Signed in with email!', 'success');
+      console.log('[Privy] finishPrivyLogin: done, UI updated for', userAddress);
     }
 
     // Silently restore a previous Privy session (LocalStorage-backed) on page load
     async function tryRestorePrivySession() {
       if (userAddress) return;
+      console.log('[Privy] tryRestorePrivySession: waiting for SDK to be ready...');
+      let client;
       try {
         // ensurePrivyReady() waits for the CDN module itself — checking window.PrivyCore here
         // would just skip restore on every load, since the module is still in flight.
-        const client = await ensurePrivyReady();
-        const { user } = await client.user.get();
-        if (userAddress) return; // a MetaMask connection won the race while we were awaiting
-        const emailAccount = (user.linked_accounts || []).find(a => a.type === 'email');
-        await finishPrivyLogin(client, user, emailAccount ? emailAccount.address : null);
+        client = await ensurePrivyReady();
       } catch (err) {
-        // Usually just "no existing session" — log at debug level so real failures are still visible
-        console.debug('[Privy] no session restored:', err && err.message);
+        console.log('[Privy] tryRestorePrivySession: SDK never became ready —', err && err.message);
+        return;
+      }
+      if (userAddress) return; // a MetaMask connection won the race while we were awaiting
+      console.log('[Privy] tryRestorePrivySession: SDK ready, checking for an existing session...');
+
+      let user;
+      try {
+        user = await getPrivyUserWithRetry(client);
+      } catch (err) {
+        // Usually just "no existing session" — logged plainly (not debug) so it's never silently hidden
+        console.log('[Privy] tryRestorePrivySession: no existing session —', err && err.message);
+        return;
+      }
+      if (userAddress) return;
+      console.log('[Privy] tryRestorePrivySession: existing session found for user', user.id, '— restoring wallet UI...');
+
+      const emailAccount = (user.linked_accounts || []).find(a => a.type === 'email');
+      try {
+        await finishPrivyLogin(client, user, emailAccount ? emailAccount.address : null);
+        console.log('[Privy] tryRestorePrivySession: restore complete');
+      } catch (err) {
+        console.log('[Privy] tryRestorePrivySession: finishPrivyLogin failed —', err && err.message, err);
       }
     }
 

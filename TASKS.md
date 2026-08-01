@@ -47,3 +47,16 @@ Investigate the Privy client config in getPrivyClient() / ensurePrivyReady():
 - Add console.log statements in tryRestorePrivySession showing: (a) did ensurePrivyReady resolve, (b) what client.user.get() returns or throws, (c) whether finishPrivyLogin was reached.
 - The likely fix: the Privy client needs to be initialized the same way on reload as on first login, AND the session must be read before the wallet iframe times out.
 Report what the console.log shows so we can see exactly where restore fails.
+
+## 1c. THE REAL BUG - session persists but UI shows logged out
+Console proof: on re-login attempt Privy returns "User already has one email account linked" (422).
+This means the Privy session IS still active after refresh - but tryRestorePrivySession() is NOT updating the UI to show the logged-in state.
+
+Fix tryRestorePrivySession():
+- On page load, call client.user.get() to fetch the existing session
+- If it returns a user with a linked email, call finishPrivyLogin() with that user to restore the UI (set userAddress, provider, signer, render wallet controls)
+- The problem is likely that finishPrivyLogin() throws during the embedded wallet iframe handshake on reload, OR user.get() succeeds but finishPrivyLogin isn't being called with the restored user
+- Add try/catch and console.log at each step so we see if user.get() succeeds and whether finishPrivyLogin completes
+- Make sure the restored session shows email + balance + address in the header, same as a fresh login
+
+Also: if a user is already logged in and tries to log in again, detect the existing session first and just restore it instead of calling loginWithCode (which causes the "already linked" error).
