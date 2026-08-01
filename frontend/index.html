@@ -3039,6 +3039,21 @@
       return m.online && (Date.now() / 1000 - Number(m.lastSeen)) < ONLINE_WINDOW_SEC;
     }
 
+    // Sub-status line for an active rental — makes it clear when the provider's agent has
+    // stopped (payment pauses) vs when it's actively running, separate from the ACTIVE badge
+    // which only reflects the rental's lifecycle stage, not the machine's live heartbeat.
+    function machineLiveStatusHtml(machine, asProvider) {
+      const live = isMachineLive(machine);
+      const verb = asProvider ? 'earning' : 'paying';
+      const text = live ? `Machine online — ${verb}` : 'Machine offline — payment paused';
+      const color = live ? 'var(--success)' : 'var(--warning)';
+      return `
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; color: ${color}; font-size: 0.875rem;">
+          <span class="status-dot ${live ? 'online' : 'offline'}"></span>${text}
+        </div>
+      `;
+    }
+
     // State
     let provider = null;
     let signer = null;
@@ -3508,8 +3523,9 @@
       const amount = document.getElementById('wmSendAmount').value.trim();
       if (!to || !amount) { showToast('Enter address and amount', 'error'); return; }
       try {
-        showToast('Sending...', 'warning');
+        showToast('Confirm in your wallet...', 'warning');
         const tx = await signer.sendTransaction({ to, value: ethers.parseEther(amount) });
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Sent successfully', 'success');
         document.getElementById('wmSendTo').value = '';
@@ -4461,9 +4477,10 @@
       try {
         btn.disabled = true;
         btn.textContent = 'Listing…';
-        showToast('Listing machine...', 'warning');
+        showToast('Confirm the listing in your wallet...', 'warning');
 
         const tx = await contract.listMachine(cpu, ram, storage, os, price, endpoint);
+        showToast('Confirming transaction...', 'warning');
         const receipt = await tx.wait();
 
         // Pull the new machine ID straight out of the MachineCreated event
@@ -4485,7 +4502,7 @@
         showToast(`Machine #${machineId} listed successfully!`, 'success');
 
         // Auto-refresh every view that shows machines
-        await Promise.all([loadMyMachines(), loadMarketplace(), loadDashboard(), loadLandingStats()]);
+        await Promise.all([loadMyMachines(), loadMarketplace(), loadDashboard(), loadLandingStats(), refreshBalance()]);
       } catch (err) {
         console.error(err);
         showToast('Failed to list machine', 'error');
@@ -4499,13 +4516,12 @@
       if (!confirm('Are you sure you want to delist this machine?')) return;
 
       try {
-        showToast('Delisting machine...', 'warning');
+        showToast('Confirm delisting in your wallet...', 'warning');
         const tx = await contract.delistMachine(machineId);
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Machine delisted', 'success');
-        loadMyMachines();
-        loadMarketplace();
-        loadLandingStats();
+        await Promise.all([loadMyMachines(), loadMarketplace(), loadDashboard(), loadLandingStats(), refreshBalance()]);
       } catch (err) {
         console.error(err);
         showToast('Failed to delist machine', 'error');
@@ -4560,8 +4576,9 @@
       const deposit = currentRentalMachine.pricePerHour * BigInt(hours);
 
       try {
-        showToast('Submitting rental request...', 'warning');
+        showToast('Confirm the deposit in your wallet...', 'warning');
         const tx = await contract.requestRental(machineId, hours, message, { value: deposit });
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental request sent! Waiting for provider approval.', 'success');
         closeModal('rentalModal');
@@ -4571,7 +4588,7 @@
         switchTab('my-rentals');
         document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        await Promise.all([loadMyRentals(), loadMarketplace(), loadDashboard(), loadLandingStats()]);
+        await Promise.all([loadMyRentals(), loadMarketplace(), loadDashboard(), loadLandingStats(), refreshBalance()]);
       } catch (err) {
         console.error(err);
         showToast('Failed to submit rental request', 'error');
@@ -4665,6 +4682,7 @@
                   <span class="spec-label">Hours Verified</span>
                   <span class="spec-value">${rental.hoursVerified} / ${rental.totalHours}</span>
                 </div>
+                ${machineLiveStatusHtml(machine, false)}
               ` : ''}
               <div class="spec-row" style="margin-top: 0.5rem;">
                 <span class="spec-label">Deposit Remaining</span>
@@ -4683,11 +4701,12 @@
 
     async function acceptRental(rentalId) {
       try {
-        showToast('Accepting rental...', 'warning');
+        showToast('Confirm acceptance in your wallet...', 'warning');
         const tx = await contract.acceptRental(rentalId);
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental accepted!', 'success');
-        await Promise.all([loadMyRentals(), loadMyMachines(), loadMarketplace(), loadDashboard()]);
+        await Promise.all([loadMyRentals(), loadMyMachines(), loadMarketplace(), loadDashboard(), refreshBalance()]);
         if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
       } catch (err) {
         console.error(err);
@@ -4697,11 +4716,12 @@
 
     async function declineRental(rentalId) {
       try {
-        showToast('Declining rental...', 'warning');
+        showToast('Confirm in your wallet...', 'warning');
         const tx = await contract.declineRental(rentalId);
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental declined, deposit refunded', 'success');
-        await Promise.all([loadMyRentals(), loadDashboard()]);
+        await Promise.all([loadMyRentals(), loadDashboard(), refreshBalance()]);
         if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
       } catch (err) {
         console.error(err);
@@ -4713,11 +4733,12 @@
       if (!confirm('Are you sure you want to end this rental?')) return;
 
       try {
-        showToast('Ending rental...', 'warning');
+        showToast('Confirm in your wallet...', 'warning');
         const tx = await contract.endRental(rentalId);
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental ended', 'success');
-        await Promise.all([loadMyRentals(), loadMarketplace(), loadDashboard(), loadLandingStats()]);
+        await Promise.all([loadMyRentals(), loadMyMachines(), loadMarketplace(), loadDashboard(), loadLandingStats(), refreshBalance()]);
         if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
       } catch (err) {
         console.error(err);
@@ -4784,9 +4805,11 @@
         const progress = totalHours > 0 ? Math.min(100, (verified / totalHours) * 100) : 0;
         const paid = BigInt(rental.hoursPaid) * machine.pricePerHour;
 
-        // Considered online while the keeper's last health report is recent (< 2h)
-        const sinceCheck = Date.now() / 1000 - Number(rental.lastHealthCheck);
-        const online = status === 1 && Number(rental.lastHealthCheck) > 0 && sinceCheck < 7200;
+        // Machine's actual agent heartbeat - not the rental's own lastHealthCheck (that only
+        // moves when the keeper calls reportUptime, which requires keeper authorization the
+        // agent may not have; the heartbeat is the reliable signal since the agent, as the
+        // machine's owner, can always set it).
+        const live = status === 1 && isMachineLive(machine);
 
         document.getElementById('chatHeader').innerHTML = `
           <strong>${esc(machine.cpu)}</strong>
@@ -4799,11 +4822,12 @@
           <div class="card">
             <div class="rental-header">
               <span style="display: flex; align-items: center; gap: 0.55rem;">
-                <span class="status-dot ${online ? 'online' : 'offline'}"></span>
+                <span class="status-dot ${live ? 'online' : 'offline'}"></span>
                 <strong>${esc(machine.cpu)}</strong>
               </span>
               <span class="rental-status status-${STATUS_CLASSES[status]}">${STATUS_LABELS[status]}</span>
             </div>
+            ${status === 1 ? machineLiveStatusHtml(machine, isProvider) : ''}
 
             <div class="detail-grid" style="margin-top: 1.25rem;">
               <div class="spec-row"><span class="spec-label">RAM</span><span class="spec-value">${esc(machine.ram)}</span></div>
@@ -4912,9 +4936,11 @@
 
       try {
         input.value = '';
+        showToast('Sending message...', 'warning', 2000);
         const tx = await contract.sendMessage(currentChatRentalId, text);
+        showToast('Confirming transaction...', 'warning', 2000);
         await tx.wait();
-        loadMessages(currentChatRentalId);
+        await loadMessages(currentChatRentalId);
       } catch (err) {
         console.error(err);
         showToast('Failed to send message', 'error');
@@ -5059,11 +5085,12 @@
           return;
         }
 
-        showToast('Withdrawing earnings...', 'warning');
+        showToast('Confirm the withdrawal in your wallet...', 'warning');
         const tx = await contract.withdrawEarnings();
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Earnings withdrawn!', 'success');
-        loadDashboard();
+        await Promise.all([loadDashboard(), refreshBalance()]);
       } catch (err) {
         console.error(err);
         showToast('Failed to withdraw', 'error');
