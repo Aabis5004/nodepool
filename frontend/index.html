@@ -3054,6 +3054,19 @@
       `;
     }
 
+    // Refreshes after a tx confirms so the UI catches up without a manual reload. A single
+    // read right after tx.wait() can still hit an RPC node that hasn't caught up with the
+    // chain tip yet (especially public/free endpoints), so this reruns the same refresh again
+    // at 3s and 6s to backstop that lag. The immediate pass is awaited so callers can rely on
+    // it having run before they continue (closing a modal, switching tabs, etc).
+    function refreshAfterTx(fns) {
+      const runOnce = () => fns.map(fn => Promise.resolve().then(fn).catch(err => console.error('Refresh failed:', err)));
+      const immediate = Promise.all(runOnce());
+      setTimeout(runOnce, 3000);
+      setTimeout(runOnce, 6000);
+      return immediate;
+    }
+
     // State
     let provider = null;
     let signer = null;
@@ -3489,13 +3502,14 @@
 
         showToast('Confirm the deposit in MetaMask...', 'warning');
         const tx = await metamaskSigner.sendTransaction({ to: userAddress, value: ethers.parseEther(amount) });
-        showToast('Deposit sent — waiting for confirmation...', 'warning');
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
 
         document.getElementById('wmDepositAmount').value = '';
-        showToast('Deposit confirmed', 'success');
-        refreshBalance();
-        refreshWalletModalBalance();
+        showToast(`Deposited ${amount} ETH successfully!`, 'success');
+        // The RPC node's balance read can lag a beat behind the confirmed tx, so back it up
+        // with retries at 3s and 6s instead of trusting the first read.
+        refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
       } catch (err) {
         if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
           showToast('Deposit cancelled', 'warning');
@@ -3527,10 +3541,10 @@
         const tx = await signer.sendTransaction({ to, value: ethers.parseEther(amount) });
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Sent successfully', 'success');
+        showToast(`Sent ${amount} ETH!`, 'success');
         document.getElementById('wmSendTo').value = '';
         document.getElementById('wmSendAmount').value = '';
-        refreshBalance(); refreshWalletModalBalance();
+        refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
       } catch (e) { showToast(e.reason || e.message || 'Send failed', 'error'); }
     }
     function renderWalletControls() {
@@ -4501,8 +4515,9 @@
         document.getElementById('machineSuccess').style.display = 'block';
         showToast(`Machine #${machineId} listed successfully!`, 'success');
 
-        // Auto-refresh every view that shows machines
-        await Promise.all([loadMyMachines(), loadMarketplace(), loadDashboard(), loadLandingStats(), refreshBalance()]);
+        // Auto-refresh every view that shows machines - retried at 3s/6s in case the RPC
+        // node hasn't caught up with the confirmed tx yet
+        await refreshAfterTx([loadMyMachines, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance]);
       } catch (err) {
         console.error(err);
         showToast('Failed to list machine', 'error');
@@ -4520,8 +4535,8 @@
         const tx = await contract.delistMachine(machineId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Machine delisted', 'success');
-        await Promise.all([loadMyMachines(), loadMarketplace(), loadDashboard(), loadLandingStats(), refreshBalance()]);
+        showToast('Machine delisted!', 'success');
+        await refreshAfterTx([loadMyMachines, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance]);
       } catch (err) {
         console.error(err);
         showToast('Failed to delist machine', 'error');
@@ -4580,7 +4595,7 @@
         const tx = await contract.requestRental(machineId, hours, message, { value: deposit });
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Rental request sent! Waiting for provider approval.', 'success');
+        showToast('Rental confirmed! Waiting for provider approval.', 'success');
         closeModal('rentalModal');
         document.getElementById('rentalMessage').value = '';
 
@@ -4588,7 +4603,7 @@
         switchTab('my-rentals');
         document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        await Promise.all([loadMyRentals(), loadMarketplace(), loadDashboard(), loadLandingStats(), refreshBalance()]);
+        await refreshAfterTx([loadMyRentals, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance]);
       } catch (err) {
         console.error(err);
         showToast('Failed to submit rental request', 'error');
@@ -4706,8 +4721,9 @@
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental accepted!', 'success');
-        await Promise.all([loadMyRentals(), loadMyMachines(), loadMarketplace(), loadDashboard(), refreshBalance()]);
-        if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
+        const acceptRefreshes = [loadMyRentals, loadMyMachines, loadMarketplace, loadDashboard, refreshBalance];
+        if (currentChatRentalId == rentalId) acceptRefreshes.push(() => renderRentalDetail(rentalId));
+        await refreshAfterTx(acceptRefreshes);
       } catch (err) {
         console.error(err);
         showToast('Failed to accept rental', 'error');
@@ -4720,9 +4736,10 @@
         const tx = await contract.declineRental(rentalId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Rental declined, deposit refunded', 'success');
-        await Promise.all([loadMyRentals(), loadDashboard(), refreshBalance()]);
-        if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
+        showToast('Rental declined — deposit refunded!', 'success');
+        const declineRefreshes = [loadMyRentals, loadDashboard, refreshBalance];
+        if (currentChatRentalId == rentalId) declineRefreshes.push(() => renderRentalDetail(rentalId));
+        await refreshAfterTx(declineRefreshes);
       } catch (err) {
         console.error(err);
         showToast('Failed to decline rental', 'error');
@@ -4737,9 +4754,10 @@
         const tx = await contract.endRental(rentalId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Rental ended', 'success');
-        await Promise.all([loadMyRentals(), loadMyMachines(), loadMarketplace(), loadDashboard(), loadLandingStats(), refreshBalance()]);
-        if (currentChatRentalId == rentalId) await renderRentalDetail(rentalId);
+        showToast('Rental ended!', 'success');
+        const endRefreshes = [loadMyRentals, loadMyMachines, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance];
+        if (currentChatRentalId == rentalId) endRefreshes.push(() => renderRentalDetail(rentalId));
+        await refreshAfterTx(endRefreshes);
       } catch (err) {
         console.error(err);
         showToast('Failed to end rental', 'error');
@@ -4940,7 +4958,8 @@
         const tx = await contract.sendMessage(currentChatRentalId, text);
         showToast('Confirming transaction...', 'warning', 2000);
         await tx.wait();
-        await loadMessages(currentChatRentalId);
+        showToast('Message sent!', 'success', 2000);
+        await refreshAfterTx([() => loadMessages(currentChatRentalId)]);
       } catch (err) {
         console.error(err);
         showToast('Failed to send message', 'error');
@@ -5089,8 +5108,8 @@
         const tx = await contract.withdrawEarnings();
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Earnings withdrawn!', 'success');
-        await Promise.all([loadDashboard(), refreshBalance()]);
+        showToast(`Withdrew ${ethers.formatEther(pending)} ETH!`, 'success');
+        await refreshAfterTx([loadDashboard, refreshBalance]);
       } catch (err) {
         console.error(err);
         showToast('Failed to withdraw', 'error');
