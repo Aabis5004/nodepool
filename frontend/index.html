@@ -2201,6 +2201,32 @@
       <a href="#pricing">Pricing</a>
       <a href="#app">Marketplace</a>
     </nav>
+    <div class="modal-overlay" id="walletModal">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-head">
+      <h3>Your Wallet</h3>
+      <button class="modal-close" onclick="closeWalletModal()">&times;</button>
+    </div>
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:0.8rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.1em">Balance</div>
+      <div id="wmBalance" style="font-size:2rem;font-weight:800;margin-top:6px">... ETH</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:0.75rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Add funds — send ETH to this address</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <code id="wmAddress" style="flex:1;font-size:0.75rem;word-break:break-all;color:#a78bfa">...</code>
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.75rem;white-space:nowrap" onclick="copyWalletAddress()">Copy</button>
+      </div>
+      <div style="font-size:0.72rem;color:#8888a6;margin-top:8px">Send Base Sepolia ETH here from MetaMask, an exchange, or a faucet.</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px">
+      <div style="font-size:0.75rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Send / Withdraw</div>
+      <input class="form-input" id="wmSendTo" placeholder="Recipient address (0x...)" style="margin-bottom:8px">
+      <input class="form-input" id="wmSendAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
+      <button class="btn btn-primary" style="width:100%" onclick="sendFunds()">Send ETH</button>
+    </div>
+  </div>
+</div>
     <div class="wallet-controls" id="walletControls">
       <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()" disabled>Loading...</button>
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
@@ -3225,6 +3251,44 @@
     }
 
     // Renders the header wallet area for the current auth state (signed out / MetaMask / Privy email)
+    async function refreshBalance() {
+      const chip = document.getElementById('balanceChip');
+      if (!chip || !provider || !userAddress) return;
+      try {
+        const bal = await provider.getBalance(userAddress);
+        chip.textContent = parseFloat(ethers.formatEther(bal)).toFixed(4) + ' ETH';
+      } catch (e) { chip.textContent = '0 ETH'; }
+    }
+    function openWalletModal() {
+      const m = document.getElementById('walletModal');
+      if (m) { m.classList.add('active'); document.getElementById('wmAddress').textContent = userAddress; refreshBalance(); refreshWalletModalBalance(); }
+    }
+    function closeWalletModal() {
+      const m = document.getElementById('walletModal');
+      if (m) m.classList.remove('active');
+    }
+    async function refreshWalletModalBalance() {
+      const el = document.getElementById('wmBalance');
+      if (!el || !provider || !userAddress) return;
+      try { const bal = await provider.getBalance(userAddress); el.textContent = parseFloat(ethers.formatEther(bal)).toFixed(5) + ' ETH'; } catch(e){}
+    }
+    function copyWalletAddress() {
+      navigator.clipboard.writeText(userAddress).then(() => showToast('Address copied', 'success'));
+    }
+    async function sendFunds() {
+      const to = document.getElementById('wmSendTo').value.trim();
+      const amount = document.getElementById('wmSendAmount').value.trim();
+      if (!to || !amount) { showToast('Enter address and amount', 'error'); return; }
+      try {
+        showToast('Sending...', 'warning');
+        const tx = await signer.sendTransaction({ to, value: ethers.parseEther(amount) });
+        await tx.wait();
+        showToast('Sent successfully', 'success');
+        document.getElementById('wmSendTo').value = '';
+        document.getElementById('wmSendAmount').value = '';
+        refreshBalance(); refreshWalletModalBalance();
+      } catch (e) { showToast(e.reason || e.message || 'Send failed', 'error'); }
+    }
     function renderWalletControls() {
       const el = document.getElementById('walletControls');
       if (!el) return;
@@ -3242,9 +3306,12 @@
       const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
       el.innerHTML = `
         ${privyEmail ? `<span class="wallet-identity" title="${userAddress}">${privyEmail}</span>` : ''}
+        <span class="wallet-btn" id="balanceChip" title="Your wallet balance">... ETH</span>
+        <button class="wallet-btn" onclick="openWalletModal()" title="Add or send funds">Wallet</button>
         <span class="wallet-btn connected" title="${userAddress}">${shortAddress}</span>
         <button class="wallet-btn wallet-btn-logout" onclick="logoutWallet()">Logout</button>
       `;
+      refreshBalance();
     }
 
     /* ---------- Privy embedded wallet (email sign-in) ---------- */
