@@ -2302,6 +2302,55 @@
       .nav-tab{padding:0.5rem 0.75rem;font-size:0.75rem}
       .main-content{padding:0.75rem}
     }
+
+    /* ============ POLISH: micro-interactions & value-change feedback ============ */
+
+    /* Buttons pick up a subtle scale on top of the existing lift, and cards glow a little
+       harder on hover so clickable surfaces feel responsive rather than static. */
+    .btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); }
+    .machine-card:hover, .rental-card:hover, .stat-card:hover {
+      border-color: rgba(139, 92, 246, 0.55);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32), var(--glow-purple);
+    }
+
+    /* Success toasts are the main "your transaction landed" signal, so they read louder
+       than info/warning ones: bigger text, green wash and a sustained glow. */
+    .toast.success {
+      border-color: rgba(16, 185, 129, 0.7);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), var(--bg-elevated) 60%);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.42), 0 0 26px rgba(16, 185, 129, 0.28);
+    }
+    .toast.success .toast-body { font-size: 0.975rem; font-weight: 650; color: #d7fbee; }
+    .toast.success .toast-icon {
+      width: 26px; height: 26px; font-size: 0.9rem;
+      background: rgba(16, 185, 129, 0.22);
+      color: var(--success);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+    }
+
+    /* Brief highlight when a number changes (balance, earnings). Green = went up,
+       neutral purple = changed some other way. */
+    @keyframes valuePulseUp {
+      0%   { transform: scale(1);    color: inherit; text-shadow: none; }
+      28%  { transform: scale(1.14); color: var(--success); text-shadow: 0 0 16px rgba(16, 185, 129, 0.65); }
+      100% { transform: scale(1);    color: inherit; text-shadow: none; }
+    }
+    @keyframes valuePulseNeutral {
+      0%   { transform: scale(1);    text-shadow: none; }
+      28%  { transform: scale(1.08); text-shadow: 0 0 14px rgba(139, 92, 246, 0.6); }
+      100% { transform: scale(1);    text-shadow: none; }
+    }
+    .value-pulse-up      { animation: valuePulseUp 1.1s cubic-bezier(0.16, 1, 0.3, 1); display: inline-block; }
+    .value-pulse-neutral { animation: valuePulseNeutral 1.1s cubic-bezier(0.16, 1, 0.3, 1); display: inline-block; }
+
+    /* Modals scale up as they fade in instead of only sliding, so they feel like they
+       come forward rather than drift down. */
+    @keyframes modalPopIn {
+      from { opacity: 0; transform: scale(0.94) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal { animation: modalPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+    .modal-overlay.active { animation: fadeIn 0.2s ease; }
   </style>
 </head>
 <body>
@@ -3191,6 +3240,42 @@
       items.forEach(el => observer.observe(el));
     }
 
+    // Staggered entrance for cards rendered from contract data. initReveal() only sees the
+    // static markup present at load, so grids re-rendered later (marketplace, my machines,
+    // rentals) opt in through this instead — same fade+slide, cascading one card at a time.
+    const lastRenderedHtml = new Map();
+
+    function revealChildren(container, stepMs = 70) {
+      if (!container) return;
+      const cards = Array.from(container.children);
+      if (cards.length === 0) return;
+
+      const show = () => cards.forEach(c => { c.classList.add('reveal', 'visible'); });
+
+      // Respect the same reduced-motion contract the CSS honours
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        show();
+        return;
+      }
+
+      // The 20s auto-refresh re-renders these grids on a timer. Re-animating identical
+      // content every cycle reads as flicker, so only cascade when the markup actually
+      // changed; otherwise drop the cards straight in at full opacity.
+      const key = container.id || container;
+      const signature = container.innerHTML;
+      if (lastRenderedHtml.get(key) === signature) {
+        show();
+        return;
+      }
+      lastRenderedHtml.set(key, signature);
+
+      cards.forEach((card, i) => {
+        card.classList.add('reveal');
+        // Cap the cascade so a long list doesn't leave the last cards hidden for seconds
+        setTimeout(() => card.classList.add('visible'), Math.min(i, 12) * stepMs);
+      });
+    }
+
     function initFooterLinks() {
       const link = document.getElementById('footerContractLink');
       link.href = `${EXPLORER_URL}/address/${CONTRACT_ADDRESS}`;
@@ -3452,13 +3537,35 @@
       renderWalletControls();
     }
 
+    // Last rendered numeric value per element, so a refresh can tell an actual change from a
+    // re-render with identical data (the 3s/6s retries re-run the same reads on purpose).
+    const lastRenderedValues = new Map();
+
+    // Writes a value and briefly highlights it if it changed — green when it went up.
+    // Skips the pulse on first render so the page doesn't flash on load.
+    function setValueWithPulse(el, text, numericValue) {
+      if (!el) return;
+      const key = el.id || el;
+      const previous = lastRenderedValues.get(key);
+      el.textContent = text;
+      lastRenderedValues.set(key, numericValue);
+
+      if (previous === undefined || numericValue === previous) return;
+      const cls = numericValue > previous ? 'value-pulse-up' : 'value-pulse-neutral';
+      el.classList.remove('value-pulse-up', 'value-pulse-neutral');
+      void el.offsetWidth; // restart the animation if it's already mid-flight
+      el.classList.add(cls);
+      setTimeout(() => el.classList.remove(cls), 1200);
+    }
+
     // Renders the header wallet area for the current auth state (signed out / MetaMask / Privy email)
     async function refreshBalance() {
       const chip = document.getElementById('balanceChip');
       if (!chip || !provider || !userAddress) return;
       try {
         const bal = await provider.getBalance(userAddress);
-        chip.textContent = parseFloat(ethers.formatEther(bal)).toFixed(4) + ' ETH';
+        const eth = parseFloat(ethers.formatEther(bal));
+        setValueWithPulse(chip, eth.toFixed(4) + ' ETH', eth);
       } catch (e) { chip.textContent = '0 ETH'; }
     }
     function openWalletModal() {
@@ -3527,7 +3634,11 @@
     async function refreshWalletModalBalance() {
       const el = document.getElementById('wmBalance');
       if (!el || !provider || !userAddress) return;
-      try { const bal = await provider.getBalance(userAddress); el.textContent = parseFloat(ethers.formatEther(bal)).toFixed(5) + ' ETH'; } catch(e){}
+      try {
+        const bal = await provider.getBalance(userAddress);
+        const eth = parseFloat(ethers.formatEther(bal));
+        setValueWithPulse(el, eth.toFixed(5) + ' ETH', eth);
+      } catch(e){}
     }
     function copyWalletAddress() {
       navigator.clipboard.writeText(userAddress).then(() => showToast('Address copied', 'success'));
@@ -4178,6 +4289,8 @@
         </div>
       `;
       }).join('');
+
+      revealChildren(container);
     }
 
     // Uptime history strip — 24 slots derived from the machine's on-chain uptime score
@@ -4663,6 +4776,7 @@
               </div>
             </div>
           `).join('');
+          revealChildren(requestsList);
         } else {
           incomingSection.style.display = 'none';
         }
@@ -4707,6 +4821,8 @@
             </div>
           `;
         }).join('');
+
+        revealChildren(rentalsList);
 
       } catch (err) {
         console.error(err);
@@ -5010,10 +5126,14 @@
           const stats = await contract.getProviderStats(userAddress);
           const pending = await contract.pendingWithdrawals(userAddress);
 
-          document.getElementById('yourMachineCount').textContent = stats.totalMachines.toString();
-          document.getElementById('yourTotalEarnings').textContent = ethers.formatEther(stats.totalEarnings) + ' ETH';
-          document.getElementById('yourPendingWithdrawal').textContent = ethers.formatEther(pending) + ' ETH';
-          document.getElementById('statEarnings').textContent = ethers.formatEther(stats.totalEarnings);
+          // Earnings/pending pulse green as they climb, so a released payment is visible
+          // the moment it lands rather than blending into a silent re-render.
+          const earningsEth = parseFloat(ethers.formatEther(stats.totalEarnings));
+          const pendingEth = parseFloat(ethers.formatEther(pending));
+          setValueWithPulse(document.getElementById('yourMachineCount'), stats.totalMachines.toString(), Number(stats.totalMachines));
+          setValueWithPulse(document.getElementById('yourTotalEarnings'), ethers.formatEther(stats.totalEarnings) + ' ETH', earningsEth);
+          setValueWithPulse(document.getElementById('yourPendingWithdrawal'), ethers.formatEther(pending) + ' ETH', pendingEth);
+          setValueWithPulse(document.getElementById('statEarnings'), ethers.formatEther(stats.totalEarnings), earningsEth);
         }
 
       } catch (err) {
