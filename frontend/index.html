@@ -3273,6 +3273,9 @@
     const STATUS_LABELS = ['Requested', 'Active', 'Completed', 'Disputed', 'Cancelled'];
     const STATUS_CLASSES = ['requested', 'active', 'completed', 'disputed', 'cancelled'];
 
+    // A deleted/never-created machine reads back with a zero owner
+    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
     // Mirrors NodePool.sol's ONLINE_WINDOW - a machine only reads as online while its
     // agent's heartbeat (lastSeen) is this fresh.
     const ONLINE_WINDOW_SEC = 180;
@@ -3503,8 +3506,13 @@
     async function loadLandingStats() {
       try {
         const c = getReader();
-        const ids = await c.getAvailableMachines();
-        const live = await Promise.all(ids.map(id => c.getMachine(id)));
+        // Same reasoning as loadMarketplace(): count open listings, not just ones whose agent
+        // happens to be beating right now, so the hero doesn't read "0" the moment one stops.
+        const count = Number(await c.machineCount());
+        const all = await Promise.all(
+          Array.from({ length: count }, (_, i) => c.getMachine(i + 1).catch(() => null))
+        );
+        const live = all.filter(m => m && m.owner !== ZERO_ADDRESS && m.isAvailable);
 
         animateNumber(
           document.getElementById('heroStatMachines'),
@@ -3912,10 +3920,11 @@
       if (!el) return;
 
       if (!userAddress) {
-        const sdkLoading = privySdkStatus === 'loading';
-        const emailBtnLabel = sdkLoading ? 'Loading...' : 'Sign in with Email';
+        // The button stays enabled while the SDK boots. On the live site that boot takes
+        // 5-9s, and a disabled "Loading..." for that long reads as a broken/hung page.
+        // openEmailModal() already awaits readiness, so an early click just waits.
         el.innerHTML = `
-          <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()" ${sdkLoading ? 'disabled' : ''}>${emailBtnLabel}</button>
+          <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
           <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
         `;
         return;
@@ -4463,9 +4472,21 @@
       grid.innerHTML = skeletonGrid(3);
 
       try {
-        const machineIds = await c.getAvailableMachines();
-        // Fetch in parallel — one round trip instead of N sequential ones
-        machines = await Promise.all(machineIds.map(id => c.getMachine(id)));
+        // Deliberately NOT getAvailableMachines(): that view also filters on the agent
+        // heartbeat, so the entire marketplace read as "No machines listed yet" the moment a
+        // provider's agent stopped — the app looked broken/empty rather than simply idle.
+        // Enumerate every listing here and let the card show ONLINE/OFFLINE; only the Rent
+        // action is gated on liveness (the contract rejects renting a dead machine anyway).
+        const count = Number(await c.machineCount());
+        const ids = Array.from({ length: count }, (_, i) => i + 1);
+        const all = await Promise.all(ids.map(id => c.getMachine(id).catch(() => null)));
+
+        // Rentals index lets a card say "Rented" instead of silently disappearing
+        await refreshRentalIndex();
+
+        // isAvailable is false for BOTH delisted and currently-rented machines, so this keeps
+        // the marketplace to genuine open listings — online or not.
+        machines = all.filter(m => m && m.owner !== ZERO_ADDRESS && m.isAvailable);
         renderMachines(machines, grid, true);
       } catch (err) {
         console.error(err);
@@ -4540,6 +4561,10 @@
               <span class="spec-value">${esc(m.storage_)}</span>
             </div>
           </div>
+          ${showRentBtn && !live ? `
+            <div class="form-hint" style="color: var(--warning); margin-top: 0.35rem;">
+              Provider's agent is offline — can't be rented until it reconnects.
+            </div>` : ''}
           <div class="machine-footer">
             <div>
               <div class="price">${ethers.formatEther(m.pricePerHour)} <span>ETH/hr</span></div>

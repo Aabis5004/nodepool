@@ -28,6 +28,9 @@ const CONTRACT_ABI = [
   'function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))',
   'function reportUptime(uint256 rentalId, bool isOnline)',
   'function setMachineOnline(uint256 machineId, bool isOnline)',
+  'function machineCount() view returns (uint256)',
+  'function getMyMachines(address owner) view returns (uint256[])',
+  'function getMachine(uint256) view returns (tuple(uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt, bool online, uint256 lastSeen))',
   'event MachineCreated(uint256 indexed machineId, address indexed owner, string cpu, string ram, uint256 pricePerHour)',
 ];
 
@@ -148,6 +151,37 @@ async function listMachine(contract, wallet) {
   console.log(`Done! Machine ID: ${machineId}`);
   console.log(`  https://sepolia.basescan.org/tx/${tx.hash}`);
   return machineId;
+}
+
+// Every machine on the contract currently owned by this wallet, lowest id first.
+// getMyMachines() is the cheap path; fall back to scanning if that call isn't available.
+async function findOwnedMachineIds(contract, owner) {
+  try {
+    const ids = await contract.getMyMachines(owner);
+    const mine = [];
+    for (const id of ids) {
+      const m = await contract.getMachine(id).catch(() => null);
+      if (m && m.owner.toLowerCase() === owner.toLowerCase()) mine.push(Number(id));
+    }
+    return mine.sort((a, b) => a - b);
+  } catch {
+    const count = Number(await contract.machineCount());
+    const mine = [];
+    for (let id = 1; id <= count; id++) {
+      const m = await contract.getMachine(id).catch(() => null);
+      if (m && m.owner.toLowerCase() === owner.toLowerCase()) mine.push(id);
+    }
+    return mine;
+  }
+}
+
+async function ownsMachine(contract, owner, machineId) {
+  try {
+    const m = await contract.getMachine(machineId);
+    return m && m.owner.toLowerCase() === owner.toLowerCase();
+  } catch {
+    return false; // id doesn't exist on this contract
+  }
 }
 
 async function findActiveRentalIds(contract, machineId) {
@@ -293,8 +327,31 @@ async function main() {
   console.log('Health server is running — keep this process alive so uptime checks can reach it.');
 
   let machineId = loadMachineId();
+
+  // Verify the cached id still belongs to us. It won't after a contract redeploy (ids restart
+  // from 1 on the new address) or if machine-id.json was hand-edited, and blindly trusting it
+  // means heartbeating someone else's listing while ours stays dark.
+  if (machineId && !(await ownsMachine(contract, wallet.address, machineId))) {
+    console.log(`machine-id.json points at Machine ${machineId}, but ${wallet.address} does not own it on ${CONTRACT_ADDRESS} — ignoring it.`);
+    machineId = null;
+  }
+
+  // Self-heal: adopt an existing listing owned by this wallet rather than creating a duplicate
+  // every time machine-id.json goes missing (that's how the earlier duplicate machines appeared).
+  if (!machineId) {
+    const owned = await findOwnedMachineIds(contract, wallet.address);
+    if (owned.length > 0) {
+      machineId = owned[0]; // lowest id = the original listing
+      console.log(`Adopting existing listing — owned machines: [${owned.join(', ')}], using Machine ${machineId}.`);
+      if (owned.length > 1) {
+        console.log(`  Note: ${owned.length} listings owned by this wallet. Delist the extras in the UI to keep the marketplace clean.`);
+      }
+      saveMachineId(machineId);
+    }
+  }
+
   if (machineId) {
-    console.log(`Found existing listing in machine-id.json — Machine ID ${machineId}. Skipping listMachine, going straight to uptime reporting.`);
+    console.log(`Using Machine ID ${machineId} — skipping listMachine, going straight to uptime reporting.`);
   } else {
     machineId = await listMachine(contract, wallet);
     saveMachineId(machineId);
