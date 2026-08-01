@@ -2820,6 +2820,7 @@
           </div>
           <button type="submit" class="btn btn-primary" style="width: 100%;" id="verifyCodeBtn">Verify &amp; Sign In</button>
         </form>
+        <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 0.75rem;" id="resendCodeBtn" onclick="resendEmailCode()" disabled>Resend code</button>
       </div>
       <!-- Shown when the code was accepted but the embedded wallet failed to load. The code is
            already spent at this point, so we offer a wallet retry instead of a second code entry. -->
@@ -2923,6 +2924,8 @@
     let privySdkStatus = 'loading'; // 'loading' | 'ready' | 'error' — drives the Sign in with Email button
     let privyIframe = null;         // hidden cross-origin iframe that hosts the embedded wallet's secure context
     let emailAuthBusy = false;      // guards double-submits — a one-time code is burned by the first attempt
+    let resendCooldownRemaining = 0;
+    let resendCooldownInterval = null;
 
     // Read-only contract so the landing stats and marketplace render without a wallet
     function getReader() {
@@ -3502,6 +3505,36 @@
         const btn = document.getElementById(id);
         if (btn) btn.disabled = busy;
       });
+      renderResendButton();
+    }
+
+    // Reflects both the busy flag and the cooldown countdown on the resend button —
+    // whichever one is currently the reason it should be disabled.
+    function renderResendButton() {
+      const btn = document.getElementById('resendCodeBtn');
+      if (!btn) return;
+      if (resendCooldownRemaining > 0) {
+        btn.disabled = true;
+        btn.textContent = `Resend code (${resendCooldownRemaining}s)`;
+      } else {
+        btn.disabled = emailAuthBusy;
+        btn.textContent = 'Resend code';
+      }
+    }
+
+    function startResendCooldown(seconds = 30) {
+      clearInterval(resendCooldownInterval);
+      resendCooldownRemaining = seconds;
+      renderResendButton();
+      resendCooldownInterval = setInterval(() => {
+        resendCooldownRemaining -= 1;
+        if (resendCooldownRemaining <= 0) {
+          clearInterval(resendCooldownInterval);
+          resendCooldownInterval = null;
+          resendCooldownRemaining = 0;
+        }
+        renderResendButton();
+      }, 1000);
     }
 
     async function openEmailModal() {
@@ -3509,6 +3542,9 @@
       document.getElementById('emailInput').value = '';
       document.getElementById('emailCodeInput').value = '';
       setEmailAuthBusy(false);
+      clearInterval(resendCooldownInterval);
+      resendCooldownInterval = null;
+      resendCooldownRemaining = 0;
       document.getElementById('emailModal').classList.add('active');
 
       if (userAddress) return; // already signed in
@@ -3544,9 +3580,29 @@
         document.getElementById('codeStepEmail').textContent = email;
         showEmailStep('codeStep');
         showToast('Code sent — check your inbox', 'success');
+        startResendCooldown();
       } catch (err) {
         logPrivyError('email.sendCode', err);
         showToast(describePrivyError(err, 'Failed to send code'), 'error');
+      } finally {
+        setEmailAuthBusy(false);
+      }
+    }
+
+    async function resendEmailCode() {
+      if (emailAuthBusy || resendCooldownRemaining > 0 || !pendingEmail) return;
+
+      setEmailAuthBusy(true);
+      try {
+        showToast('Resending code...', 'warning');
+        const client = await ensurePrivyReady();
+        await client.auth.email.sendCode(pendingEmail);
+        document.getElementById('emailCodeInput').value = '';
+        showToast('Code resent — check your inbox', 'success');
+        startResendCooldown();
+      } catch (err) {
+        logPrivyError('email.sendCode (resend)', err);
+        showToast(describePrivyError(err, 'Failed to resend code'), 'error');
       } finally {
         setEmailAuthBusy(false);
       }
@@ -4744,6 +4800,10 @@
     // Utilities
     function closeModal(modalId) {
       document.getElementById(modalId).classList.remove('active');
+      if (modalId === 'emailModal') {
+        clearInterval(resendCooldownInterval);
+        resendCooldownInterval = null;
+      }
     }
 
     const TOAST_ICONS = { success: '&#10003;', error: '!', warning: '&#8943;', info: 'i' };
