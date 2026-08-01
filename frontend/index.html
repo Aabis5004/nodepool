@@ -241,22 +241,6 @@
       box-shadow: none;
     }
 
-    .wallet-btn.connected {
-      background: var(--bg-glass);
-      border: 1px solid var(--border-strong);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.875rem;
-    }
-
-    .wallet-btn.connected::before {
-      content: '';
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 8px var(--success);
-    }
-
     .wallet-controls {
       display: flex;
       align-items: center;
@@ -275,15 +259,6 @@
       box-shadow: var(--glow-purple);
     }
 
-    .wallet-identity {
-      font-size: 0.8125rem;
-      color: var(--text-secondary);
-      max-width: 160px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
     .wallet-btn-logout {
       background: rgba(239, 68, 68, 0.1);
       color: var(--error);
@@ -296,9 +271,106 @@
       transform: translateY(-1px);
     }
 
-    @media (max-width: 480px) {
-      .wallet-identity { display: none; }
+    /* Account dropdown — the only thing visible in the header once signed in is the trigger;
+       email/balance/address/logout live inside the panel it opens. */
+    .wallet-menu { position: relative; }
+
+    .wallet-menu-trigger {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
     }
+
+    .wallet-menu-trigger:hover {
+      border-color: var(--accent-purple);
+      box-shadow: var(--glow-purple);
+    }
+
+    .wallet-menu-trigger::after {
+      content: '';
+      position: absolute;
+      bottom: 1px;
+      right: 1px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success), 0 0 0 2px var(--bg-primary);
+    }
+
+    .wallet-menu-panel {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      min-width: 260px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 300;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .wallet-menu-panel.open { display: flex; }
+
+    .wallet-menu-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .wallet-menu-value {
+      color: var(--text-primary);
+      font-weight: 600;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .wallet-menu-divider {
+      height: 1px;
+      background: var(--border-color);
+    }
+
+    .wallet-menu-address {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8125rem;
+      color: var(--text-primary);
+    }
+
+    .wallet-menu-copy {
+      background: none;
+      border: none;
+      color: var(--accent-purple);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+
+    .wallet-menu-copy:hover { text-decoration: underline; }
 
     /* ============ HERO ============ */
     .hero {
@@ -3370,14 +3442,47 @@
 
       const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
       el.innerHTML = `
-        ${privyEmail ? `<span class="wallet-identity" title="${userAddress}">${privyEmail}</span>` : ''}
-        <span class="wallet-btn" id="balanceChip" title="Your wallet balance">... ETH</span>
-        <button class="wallet-btn" onclick="openWalletModal()" title="Add or send funds">Wallet</button>
-        <span class="wallet-btn connected" title="${userAddress}">${shortAddress}</span>
-        <button class="wallet-btn wallet-btn-logout" onclick="logoutWallet()">Logout</button>
+        <div class="wallet-menu">
+          <button class="wallet-menu-trigger" onclick="toggleWalletMenu(event)" title="Account">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="2.1"/><circle cx="12" cy="12" r="2.1"/><circle cx="19" cy="12" r="2.1"/>
+            </svg>
+          </button>
+          <div class="wallet-menu-panel" id="walletMenuPanel">
+            ${privyEmail ? `<div class="wallet-menu-row"><span>Email</span><span class="wallet-menu-value" title="${privyEmail}">${privyEmail}</span></div>` : ''}
+            <div class="wallet-menu-row"><span>Balance</span><span class="wallet-menu-value" id="balanceChip">... ETH</span></div>
+            <div class="wallet-menu-divider"></div>
+            <div class="wallet-menu-address" title="${userAddress}">
+              <span>${shortAddress}</span>
+              <button class="wallet-menu-copy" onclick="copyWalletAddress()">Copy</button>
+            </div>
+            <div class="wallet-menu-divider"></div>
+            <button class="btn btn-secondary" style="width:100%" onclick="closeWalletMenu(); openWalletModal();">Deposit / Send</button>
+            <button class="wallet-btn wallet-btn-logout" style="width:100%; justify-content:center" onclick="logoutWallet()">Logout</button>
+          </div>
+        </div>
       `;
       refreshBalance();
     }
+
+    function toggleWalletMenu(event) {
+      if (event) event.stopPropagation(); // keep this click from immediately re-triggering the outside-click closer below
+      const panel = document.getElementById('walletMenuPanel');
+      if (panel) panel.classList.toggle('open');
+    }
+
+    function closeWalletMenu() {
+      const panel = document.getElementById('walletMenuPanel');
+      if (panel) panel.classList.remove('open');
+    }
+
+    // Closes the account dropdown on any click outside it — registered once, survives
+    // renderWalletControls() re-rendering the panel's markup on every login/logout.
+    document.addEventListener('click', (e) => {
+      const panel = document.getElementById('walletMenuPanel');
+      if (!panel || !panel.classList.contains('open')) return;
+      if (!e.target.closest('.wallet-menu')) panel.classList.remove('open');
+    });
 
     /* ---------- Privy embedded wallet (email sign-in) ---------- */
 
