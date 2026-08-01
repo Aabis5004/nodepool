@@ -3425,6 +3425,7 @@
     async function verifyEmailCode(event) {
       event.preventDefault();
       const code = document.getElementById('emailCodeInput').value.trim();
+      if (code.length !== 6) { showToast('Enter the full 6-digit code', 'error'); return; }
       if (!code || !pendingEmail || emailAuthBusy) return;
 
       setEmailAuthBusy(true);
