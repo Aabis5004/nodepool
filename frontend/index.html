@@ -3678,16 +3678,24 @@
     async function restoreSession() {
       const preferPrivy = lastAuthMode() === 'privy';
 
+      // Boot the Privy SDK on every load, whichever login ends up winning below. It also
+      // drives the "Sign in with Email" button: while privySdkStatus is 'loading' that button
+      // renders disabled with the label "Loading...". Gating this call behind "no wallet
+      // connected" meant an auto-connecting MetaMask skipped it entirely, so the status never
+      // left 'loading' and the header stayed stuck on a dead "Loading..." button the moment
+      // the user signed out — with no way to recover short of a reload.
+      const privyReady = ensurePrivyReady().catch(() => {}); // settles either way; status is set inside
+
       if (preferPrivy) {
-        // Let the email session win the race it would otherwise lose
-        try { await ensurePrivyReady(); await tryRestorePrivySession(); } catch { /* fall through */ }
+        // Let the email session win the race it would otherwise lose to MetaMask
+        try { await privyReady; await tryRestorePrivySession(); } catch { /* fall through */ }
         if (!userAddress) await checkWalletConnection().catch(() => {});
         return;
       }
 
       await checkWalletConnection().catch(() => {});
       if (!userAddress) {
-        ensurePrivyReady().then(() => tryRestorePrivySession()).catch(() => {});
+        privyReady.then(() => tryRestorePrivySession()).catch(() => {});
       }
     }
 
@@ -4060,13 +4068,29 @@
       return iframe;
     }
 
+    // Rejects if the wrapped promise hasn't settled in time. waitForPrivyCore() polls with its
+    // own deadline, but client.initialize() had none — a hung call left ensurePrivyReady()
+    // pending forever, which pins privySdkStatus at 'loading' and disables the email button
+    // with no fallback. Failing is strictly better here: 'error' re-enables the button so the
+    // user can retry (privyReadyPromise is cleared on failure).
+    function withPrivyTimeout(promise, ms, label) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        Promise.resolve(promise).then(
+          value => { clearTimeout(timer); resolve(value); },
+          err   => { clearTimeout(timer); reject(err); }
+        );
+      });
+    }
+
     function ensurePrivyReady() {
       if (!privyReadyPromise) {
         privyReadyPromise = (async () => {
           try {
             await waitForPrivyCore();
             const client = getPrivyClient();
-            await client.initialize();
+            // Normally ~4s; 20s is generous headroom for a slow network without hanging forever
+            await withPrivyTimeout(client.initialize(), 20000, 'Privy SDK initialization');
             setupEmbeddedWalletProxy(client); // wallet iframe must exist before any embeddedWallet.* call
             setPrivySdkStatus('ready');
             return client;
