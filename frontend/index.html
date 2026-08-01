@@ -2159,6 +2159,23 @@
       html { scroll-behavior: auto; }
       .reveal { opacity: 1; transform: none; }
     }
+    /* Starfield */
+    .hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+      background-image:radial-gradient(1px 1px at 10% 20%,rgba(255,255,255,.5),transparent),radial-gradient(1px 1px at 30% 50%,rgba(255,255,255,.4),transparent),radial-gradient(1px 1px at 50% 70%,rgba(255,255,255,.35),transparent),radial-gradient(1px 1px at 70% 30%,rgba(255,255,255,.45),transparent),radial-gradient(1px 1px at 90% 60%,rgba(255,255,255,.3),transparent),radial-gradient(1px 1px at 15% 80%,rgba(255,255,255,.4),transparent),radial-gradient(1px 1px at 85% 15%,rgba(255,255,255,.35),transparent);
+      animation:twinkle 5s ease-in-out infinite}
+    @keyframes twinkle{50%{opacity:.4}}
+    /* Mobile 375px */
+    @media(max-width:375px){
+      .hero-inner h1{font-size:1.6rem}
+      .hero-inner p{font-size:.85rem}
+      .stats-grid{grid-template-columns:1fr 1fr}
+      .stat-value{font-size:1.5rem}
+      .machine-grid{grid-template-columns:1fr}
+      .chat-container{grid-template-columns:1fr}
+      .nav-tabs{gap:0.25rem}
+      .nav-tab{padding:0.5rem 0.75rem;font-size:0.75rem}
+      .main-content{padding:0.75rem}
+    }
   </style>
 </head>
 <body>
