@@ -2899,8 +2899,7 @@
       initFooterLinks();
       renderWalletControls();
       checkWalletConnection();
-      ensurePrivyReady().catch(() => {}); // preload SDK + flip the email button out of its loading state
-      tryRestorePrivySession();
+      ensurePrivyReady().then(() => tryRestorePrivySession()).catch(() => {});
       // Public data doesn't need a wallet — load it immediately
       loadLandingStats();
       loadMarketplace();
