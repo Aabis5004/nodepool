@@ -2631,7 +2631,13 @@
       <!-- My Machines Tab -->
       <div class="tab-content" id="my-machines">
         <div class="section-header">
-          <h2 class="section-title">My Machines</h2>
+          <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
+            <h2 class="section-title">My Machines</h2>
+            <label class="form-hint" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+              <input type="checkbox" id="showDelistedToggle" onchange="loadMyMachines()">
+              Show delisted
+            </label>
+          </div>
           <button class="btn btn-primary" onclick="openAddMachineModal()">+ Add Machine</button>
         </div>
         <div class="machine-grid" id="myMachineGrid">
@@ -2976,7 +2982,7 @@
   <script>
     // Contract configuration - UPDATE THIS AFTER DEPLOYMENT
     // Deployed to Base Sepolia (chainId 84532)
-    const CONTRACT_ADDRESS = '0xadC135620B239946321EcF57E7d424FA9d165850';
+    const CONTRACT_ADDRESS = '0xc8D26E0aEbB17B6c68F9EBb8483Ac5298537F3A8';
     const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
     const CHAIN_ID_HEX = '0x14a34'; // 84532
     const RPC_URL = 'https://base-sepolia-rpc.publicnode.com'; // sepolia.base.org (the public Base RPC) was too flaky — "too many errors"
@@ -2991,13 +2997,15 @@
     const CONTRACT_ABI = [
       "function machineCount() view returns (uint256)",
       "function rentalCount() view returns (uint256)",
-      "function machines(uint256) view returns (uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt)",
+      "function machines(uint256) view returns (uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt, bool online, uint256 lastSeen)",
       "function rentals(uint256) view returns (uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage)",
       "function pendingWithdrawals(address) view returns (uint256)",
       "function getAvailableMachines() view returns (uint256[])",
       "function getMyMachines(address) view returns (uint256[])",
       "function getMyRentals(address) view returns (uint256[])",
-      "function getMachine(uint256) view returns (tuple(uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt))",
+      "function getMachine(uint256) view returns (tuple(uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt, bool online, uint256 lastSeen))",
+      "function isMachineOnline(uint256) view returns (bool)",
+      "function setMachineOnline(uint256 machineId, bool isOnline)",
       "function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))",
       "function getMessages(uint256) view returns (uint256[])",
       "function messages(uint256) view returns (uint256 rentalId, address sender, string text, uint256 timestamp)",
@@ -3023,6 +3031,13 @@
     // Rental status enum -> label / css modifier
     const STATUS_LABELS = ['Requested', 'Active', 'Completed', 'Disputed', 'Cancelled'];
     const STATUS_CLASSES = ['requested', 'active', 'completed', 'disputed', 'cancelled'];
+
+    // Mirrors NodePool.sol's ONLINE_WINDOW - a machine only reads as online while its
+    // agent's heartbeat (lastSeen) is this fresh.
+    const ONLINE_WINDOW_SEC = 180;
+    function isMachineLive(m) {
+      return m.online && (Date.now() / 1000 - Number(m.lastSeen)) < ONLINE_WINDOW_SEC;
+    }
 
     // State
     let provider = null;
@@ -3070,7 +3085,26 @@
       loadLandingStats();
       loadMarketplace();
       loadDashboard();
+      startAutoRefresh();
     });
+
+    // Keeps the marketplace, my machines/rentals and dashboard live without a manual refresh —
+    // machines going on/offline and rentals changing state are driven by the agent and other
+    // users, not by this tab's own actions.
+    let autoRefreshInFlight = false;
+    function startAutoRefresh() {
+      setInterval(async () => {
+        if (document.hidden || autoRefreshInFlight) return;
+        autoRefreshInFlight = true;
+        try {
+          await loadAllData();
+        } catch (err) {
+          console.error('Auto-refresh failed:', err);
+        } finally {
+          autoRefreshInFlight = false;
+        }
+      }, 20000);
+    }
 
     /* ---------- Landing page behaviour ---------- */
 
@@ -4069,9 +4103,15 @@
         machineCache.set(Number(m.id), m);
         // A machine goes unavailable while it's rented — distinguish that from a delisting
         const activeRental = showRentBtn ? null : activeRentalForMachine(m.id);
-        const online = m.isAvailable;
-        const stateLabel = online ? 'Online' : (activeRental ? 'Rented' : 'Offline');
-        const stateClass = online ? 'online' : (activeRental ? 'busy' : 'offline');
+        const delisted = !m.isAvailable && !activeRental;
+        const live = isMachineLive(m);
+
+        let stateLabel, stateClass;
+        if (activeRental) { stateLabel = 'Rented'; stateClass = 'busy'; }
+        else if (delisted) { stateLabel = 'Delisted'; stateClass = 'offline'; }
+        else if (live) { stateLabel = 'Online'; stateClass = 'online'; }
+        else { stateLabel = 'Offline'; stateClass = 'offline'; }
+
         return `
         <div class="card machine-card" data-id="${m.id}" onclick="openMachineDetail(${m.id})">
           <span class="status-pill">
@@ -4098,12 +4138,12 @@
               <div class="uptime-badge">${(Number(m.uptimeScore) / 100).toFixed(1)}% uptime</div>
             </div>
             ${showRentBtn
-              ? `<button class="btn btn-primary" onclick="event.stopPropagation(); openRentalModal(${m.id})">Rent</button>`
+              ? `<button class="btn btn-primary" onclick="event.stopPropagation(); openRentalModal(${m.id})" ${live ? '' : 'disabled'}>${live ? 'Rent' : 'Offline'}</button>`
               : activeRental
                 ? `<button class="btn btn-secondary" onclick="event.stopPropagation(); openRentalDetail(${activeRental.id})">View Rental</button>`
-                : online
-                  ? `<button class="btn btn-danger" onclick="event.stopPropagation(); delistMachine(${m.id}, this)">Delist</button>`
-                  : `<button class="btn btn-secondary" disabled>Delisted</button>`}
+                : delisted
+                  ? `<button class="btn btn-secondary" disabled>Delisted</button>`
+                  : `<button class="btn btn-danger" onclick="event.stopPropagation(); delistMachine(${m.id}, this)">Delist</button>`}
           </div>
         </div>
       `;
@@ -4133,13 +4173,21 @@
         try { m = await getReader().getMachine(machineId); } catch (err) { console.error(err); return; }
       }
 
-      const online = m.isAvailable;
+      const activeRental = activeRentalForMachine(m.id);
+      const live = isMachineLive(m);
+      const rentable = m.isAvailable && live;
       const isMine = userAddress && m.owner.toLowerCase() === userAddress.toLowerCase();
+
+      const statusText = activeRental
+        ? 'Currently rented'
+        : rentable
+          ? 'Online — accepting rentals'
+          : (!m.isAvailable ? 'Delisted — not accepting rentals' : 'Offline — not accepting rentals');
 
       document.getElementById('machineDetailBody').innerHTML = `
         <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem;">
-          <span class="status-dot ${online ? 'online' : 'offline'}"></span>
-          <strong>${online ? 'Online — accepting rentals' : 'Offline — not accepting rentals'}</strong>
+          <span class="status-dot ${live ? 'online' : 'offline'}"></span>
+          <strong>${statusText}</strong>
           <span class="os-badge" style="position: static; margin-left: auto;">${esc(m.os)}</span>
         </div>
 
@@ -4173,8 +4221,8 @@
 
         ${isMine
           ? `<button class="btn btn-secondary" style="width: 100%;" disabled>This is your machine</button>`
-          : `<button class="btn btn-primary" style="width: 100%;" onclick="closeModal('machineDetailModal'); openRentalModal(${m.id});" ${online ? '' : 'disabled'}>
-               ${online ? 'Rent This Machine' : 'Currently Unavailable'}
+          : `<button class="btn btn-primary" style="width: 100%;" onclick="closeModal('machineDetailModal'); openRentalModal(${m.id});" ${rentable ? '' : 'disabled'}>
+               ${rentable ? 'Rent This Machine' : 'Currently Unavailable'}
              </button>`}
       `;
       document.getElementById('machineDetailModal').classList.add('active');
@@ -4245,7 +4293,24 @@
           refreshRentalIndex(),   // so cards can show "Rented" instead of "Offline"
         ]);
         const myMachines = await Promise.all(machineIds.map(id => contract.getMachine(id)));
-        renderMachines(myMachines, grid, false);
+
+        // Delisted (soft-deleted) machines are hidden by default so the grid only shows
+        // what's actually an active listing; the toggle reveals them for reference.
+        const showDelisted = document.getElementById('showDelistedToggle')?.checked;
+        const visibleMachines = showDelisted
+          ? myMachines
+          : myMachines.filter(m => m.isAvailable || activeRentalForMachine(m.id));
+
+        if (visibleMachines.length === 0 && myMachines.length > 0 && !showDelisted) {
+          grid.innerHTML = emptyState({
+            art: 'server',
+            title: 'All your machines are delisted',
+            body: 'Check "Show delisted" above to see them, or list a new one.',
+            action: '<button class="btn btn-primary" onclick="openAddMachineModal()">List a New Machine</button>',
+          });
+        } else {
+          renderMachines(visibleMachines, grid, false);
+        }
       } catch (err) {
         console.error(err);
         grid.innerHTML = emptyState({
@@ -4877,8 +4942,8 @@
           try { allMachines.push(await c.getMachine(i)); } catch (e) {}
         }
 
-        // "Total Machines" used to include delisted/rented ones — only count what's rentable
-        const available = allMachines.filter(m => m.isAvailable);
+        // "Total Machines" used to include delisted/rented ones — only count what's actually rentable
+        const available = allMachines.filter(m => m.isAvailable && isMachineLive(m));
         document.getElementById('statMachines').textContent = available.length.toString();
 
         // Active rentals, not all rentals ever created

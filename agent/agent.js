@@ -13,7 +13,7 @@ const { ethers } = require('ethers');
 
 const PRIVATE_KEY = process.env.PROVIDER_PRIVATE_KEY;
 const PRICE_PER_HOUR = process.env.PRICE_PER_HOUR || '0.001';
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0xadC135620B239946321EcF57E7d424FA9d165850';
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0xc8D26E0aEbB17B6c68F9EBb8483Ac5298537F3A8';
 const RPC_URL = process.env.RPC_URL || 'https://base-sepolia-rpc.publicnode.com';
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 3939);
 
@@ -27,6 +27,7 @@ const CONTRACT_ABI = [
   'function rentalCount() view returns (uint256)',
   'function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))',
   'function reportUptime(uint256 rentalId, bool isOnline)',
+  'function setMachineOnline(uint256 machineId, bool isOnline)',
   'event MachineCreated(uint256 indexed machineId, address indexed owner, string cpu, string ram, uint256 pricePerHour)',
 ];
 
@@ -188,6 +189,20 @@ async function reportUptimeForRental(contract, rentalId, isOnline) {
   }
 }
 
+// setMachineOnline() only requires the machine owner or keeper - the agent's own wallet is
+// always the owner (it listed the machine), so unlike reportUptime this should never revert
+// on authorization grounds.
+async function setMachineOnlineStatus(contract, machineId, isOnline) {
+  try {
+    const tx = await contract.setMachineOnline(machineId, isOnline);
+    await tx.wait();
+    return { ok: true };
+  } catch (err) {
+    const reason = (err && err.reason) || (err && err.shortMessage) || (err && err.message) || 'unknown error';
+    return { ok: false, reason };
+  }
+}
+
 function timestamp() {
   return new Date().toLocaleTimeString();
 }
@@ -200,6 +215,14 @@ async function runUptimeLoop(contract, machineId) {
     if (!healthy) {
       console.log(`[${timestamp()}] Machine ${machineId} - local health check failed, skipping this cycle`);
       return;
+    }
+
+    // Heartbeat: refreshes lastSeen on-chain so the marketplace keeps showing this machine as
+    // online. Runs every cycle regardless of active rentals - the marketplace listing depends
+    // on it even when nobody is renting yet.
+    const heartbeat = await setMachineOnlineStatus(contract, machineId, true);
+    if (!heartbeat.ok) {
+      console.log(`[${timestamp()}] Machine ${machineId} - heartbeat failed: ${heartbeat.reason}`);
     }
 
     let activeRentalIds;
@@ -234,6 +257,10 @@ async function runUptimeLoop(contract, machineId) {
     shuttingDown = true;
     console.log('\nShutting down...');
     clearInterval(interval);
+
+    const offline = await setMachineOnlineStatus(contract, machineId, false);
+    console.log(offline.ok ? `Marked machine ${machineId} offline` : `Could not mark machine ${machineId} offline: ${offline.reason}`);
+
     try {
       const activeRentalIds = await findActiveRentalIds(contract, machineId);
       for (const rentalId of activeRentalIds) {
@@ -257,7 +284,10 @@ async function main() {
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-  const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, wallet);
+  // NonceManager tracks the next nonce locally instead of re-querying the RPC for every send -
+  // without it, sending listMachine and the startup heartbeat back-to-back can race the
+  // provider's pending-nonce lookup and get "nonce too low" on the second transaction.
+  const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, new ethers.NonceManager(wallet));
 
   startHealthServer(HEALTH_PORT);
   console.log('Health server is running — keep this process alive so uptime checks can reach it.');
@@ -269,6 +299,9 @@ async function main() {
     machineId = await listMachine(contract, wallet);
     saveMachineId(machineId);
   }
+
+  const startup = await setMachineOnlineStatus(contract, machineId, true);
+  console.log(startup.ok ? `Marked machine ${machineId} online` : `Could not mark machine ${machineId} online: ${startup.reason}`);
 
   await runUptimeLoop(contract, machineId);
 }

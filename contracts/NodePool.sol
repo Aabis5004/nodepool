@@ -32,6 +32,8 @@ contract NodePool {
         uint256 uptimeScore;    // percentage * 100 (e.g., 9950 = 99.50%)
         uint256 totalEarnings;
         uint256 createdAt;
+        bool online;            // set truthfully by the agent's heartbeat, not by the owner's intent
+        uint256 lastSeen;       // timestamp of the last heartbeat; stale beyond ONLINE_WINDOW means offline
     }
 
     struct Rental {
@@ -63,6 +65,9 @@ contract NodePool {
     uint256 public messageCount;
     address public keeper;  // address authorized to report uptime (simulated oracle)
 
+    // A machine is only considered live if its agent heartbeat landed within this window
+    uint256 public constant ONLINE_WINDOW = 3 minutes;
+
     mapping(uint256 => Machine) public machines;
     mapping(uint256 => Rental) public rentals;
     mapping(uint256 => Message) public messages;
@@ -91,6 +96,7 @@ contract NodePool {
 
     event MachineUpdated(uint256 indexed machineId);
     event MachineDelisted(uint256 indexed machineId);
+    event MachineOnlineStatusChanged(uint256 indexed machineId, bool online, uint256 timestamp);
 
     event RentalRequested(
         uint256 indexed rentalId,
@@ -182,7 +188,9 @@ contract NodePool {
             isAvailable: true,
             uptimeScore: 10000,  // Start at 100%
             totalEarnings: 0,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            online: false,  // agent marks it online with its own heartbeat right after listing
+            lastSeen: 0
         });
 
         ownerMachines[msg.sender].push(machineId);
@@ -230,6 +238,37 @@ contract NodePool {
         emit MachineDelisted(machineId);
     }
 
+    /**
+     * @notice Set a machine's live/online status - called by the agent's heartbeat
+     * @dev Only the machine owner (agent's wallet) or the keeper may call this, so the
+     *      status reflects what the agent actually observed, not a claim anyone can make.
+     *      Going online refreshes lastSeen; going offline (e.g. on agent shutdown) does not,
+     *      so the machine reads as offline immediately rather than waiting out the window.
+     */
+    function setMachineOnline(uint256 machineId, bool isOnline)
+        external
+        machineExists(machineId)
+    {
+        require(
+            msg.sender == machines[machineId].owner || msg.sender == keeper,
+            "Not authorized to set online status"
+        );
+
+        machines[machineId].online = isOnline;
+        if (isOnline) {
+            machines[machineId].lastSeen = block.timestamp;
+        }
+
+        emit MachineOnlineStatusChanged(machineId, isOnline, block.timestamp);
+    }
+
+    /**
+     * @notice True if the machine's agent heartbeat landed within the last ONLINE_WINDOW
+     */
+    function _isOnline(Machine storage machine) internal view returns (bool) {
+        return machine.online && (block.timestamp - machine.lastSeen <= ONLINE_WINDOW);
+    }
+
     // ============ Rental Functions ============
 
     /**
@@ -245,6 +284,7 @@ contract NodePool {
     ) external payable machineExists(machineId) returns (uint256) {
         Machine storage machine = machines[machineId];
         require(machine.isAvailable, "Machine not available");
+        require(_isOnline(machine), "Machine agent not live");
         require(machine.owner != msg.sender, "Cannot rent your own machine");
         require(rentalHours > 0, "Must rent for at least 1 hour");
 
@@ -499,12 +539,14 @@ contract NodePool {
 
     /**
      * @notice Get all available machines for the marketplace
+     * @dev Only machines that are listed AND whose agent heartbeat is still live -
+     *      a delisted or offline machine has nothing behind it to actually rent.
      */
     function getAvailableMachines() external view returns (uint256[] memory) {
         // First, count available machines
         uint256 count = 0;
         for (uint256 i = 1; i <= machineCount; i++) {
-            if (machines[i].isAvailable && machines[i].owner != address(0)) {
+            if (machines[i].isAvailable && machines[i].owner != address(0) && _isOnline(machines[i])) {
                 count++;
             }
         }
@@ -513,13 +555,25 @@ contract NodePool {
         uint256[] memory available = new uint256[](count);
         uint256 index = 0;
         for (uint256 i = 1; i <= machineCount; i++) {
-            if (machines[i].isAvailable && machines[i].owner != address(0)) {
+            if (machines[i].isAvailable && machines[i].owner != address(0) && _isOnline(machines[i])) {
                 available[index] = i;
                 index++;
             }
         }
 
         return available;
+    }
+
+    /**
+     * @notice Whether a machine's agent heartbeat is currently live (within ONLINE_WINDOW)
+     */
+    function isMachineOnline(uint256 machineId)
+        external
+        view
+        machineExists(machineId)
+        returns (bool)
+    {
+        return _isOnline(machines[machineId]);
     }
 
     /**
