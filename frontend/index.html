@@ -2290,38 +2290,38 @@
       <a href="#app">Marketplace</a>
     </nav>
     <div class="modal-overlay" id="walletModal">
-  <div class="modal-box" style="max-width:440px">
-    <div class="modal-head">
-      <h3>Your Wallet</h3>
-      <button class="modal-close" onclick="closeWalletModal()">&times;</button>
-    </div>
-    <div style="text-align:center;padding:16px 0">
-      <div style="font-size:0.8rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.1em">Balance</div>
-      <div id="wmBalance" style="font-size:2rem;font-weight:800;margin-top:6px">... ETH</div>
-    </div>
-    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin-bottom:16px">
-      <div style="font-size:0.75rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Add funds — send ETH to this address</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <code id="wmAddress" style="flex:1;font-size:0.75rem;word-break:break-all;color:#a78bfa">...</code>
-        <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.75rem;white-space:nowrap" onclick="copyWalletAddress()">Copy</button>
+      <div class="modal" style="max-width:440px">
+        <div class="modal-header">
+          <h3 class="modal-title">Your Wallet</h3>
+          <button class="modal-close" onclick="closeWalletModal()">&times;</button>
+        </div>
+        <div style="text-align:center;padding:0.5rem 0 1.5rem">
+          <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Balance</div>
+          <div id="wmBalance" class="gradient-text" style="font-size:2.25rem;font-weight:800;margin-top:6px">... ETH</div>
+        </div>
+        <div style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem;margin-bottom:1rem">
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Add funds — send ETH to this address</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <code id="wmAddress" style="flex:1;font-size:0.75rem;word-break:break-all;color:var(--accent-purple)">...</code>
+            <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.75rem;white-space:nowrap" onclick="copyWalletAddress()">Copy</button>
+          </div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px">Send Base Sepolia ETH here from MetaMask, an exchange, or a faucet.</div>
+        </div>
+        <!-- Only shown when signed in with the Privy embedded wallet and MetaMask is installed —
+             lets that MetaMask account fund the embedded wallet in one click instead of a manual copy/paste. -->
+        <div id="wmMetaMaskDeposit" style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem;margin-bottom:1rem;display:none">
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Deposit from MetaMask</div>
+          <input class="form-input" id="wmDepositAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
+          <button class="btn btn-secondary" style="width:100%" onclick="depositFromMetaMask()" id="wmDepositBtn">Send from MetaMask to this wallet</button>
+        </div>
+        <div style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem">
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Send / Withdraw</div>
+          <input class="form-input" id="wmSendTo" placeholder="Recipient address (0x...)" style="margin-bottom:8px">
+          <input class="form-input" id="wmSendAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
+          <button class="btn btn-primary" style="width:100%" onclick="sendFunds()">Send ETH</button>
+        </div>
       </div>
-      <div style="font-size:0.72rem;color:#8888a6;margin-top:8px">Send Base Sepolia ETH here from MetaMask, an exchange, or a faucet.</div>
     </div>
-    <!-- Only shown when signed in with the Privy embedded wallet and MetaMask is installed —
-         lets that MetaMask account fund the embedded wallet in one click instead of a manual copy/paste. -->
-    <div id="wmMetaMaskDeposit" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin-top:16px;display:none">
-      <div style="font-size:0.75rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Deposit from MetaMask</div>
-      <input class="form-input" id="wmDepositAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
-      <button class="btn btn-secondary" style="width:100%" onclick="depositFromMetaMask()" id="wmDepositBtn">Send from MetaMask to this wallet</button>
-    </div>
-    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin-top:16px">
-      <div style="font-size:0.75rem;color:#8888a6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Send / Withdraw</div>
-      <input class="form-input" id="wmSendTo" placeholder="Recipient address (0x...)" style="margin-bottom:8px">
-      <input class="form-input" id="wmSendAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
-      <button class="btn btn-primary" style="width:100%" onclick="sendFunds()">Send ETH</button>
-    </div>
-  </div>
-</div>
     <div class="wallet-controls" id="walletControls">
       <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()" disabled>Loading...</button>
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
@@ -3372,18 +3372,29 @@
 
     // Lets a MetaMask account fund the signed-in Privy embedded wallet directly, on Base Sepolia.
     async function depositFromMetaMask() {
-      if (typeof window.ethereum === 'undefined') { showToast('MetaMask not detected', 'error'); return; }
+      if (typeof window.ethereum === 'undefined') {
+        showToast('MetaMask not installed — install the extension to deposit this way', 'error');
+        return;
+      }
       const amount = document.getElementById('wmDepositAmount').value.trim();
       if (!amount || Number(amount) <= 0) { showToast('Enter an amount', 'error'); return; }
 
       const btn = document.getElementById('wmDepositBtn');
       if (btn) btn.disabled = true;
       try {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        // Always (re-)request accounts first — MetaMask may never have been connected to this
+        // page before (the user signed in with Privy, not MetaMask), so a bare getSigner() call
+        // has nothing to sign with yet and fails as "not connected" instead of prompting.
+        showToast('Connecting to MetaMask...', 'warning');
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (!accounts || accounts.length === 0) {
+          showToast('No MetaMask account was connected', 'error');
+          return;
+        }
         if (!(await ensureBaseSepolia())) return;
 
         const metamaskProvider = new ethers.BrowserProvider(window.ethereum);
-        const metamaskSigner = await metamaskProvider.getSigner();
+        const metamaskSigner = await metamaskProvider.getSigner(accounts[0]);
 
         showToast('Confirm the deposit in MetaMask...', 'warning');
         const tx = await metamaskSigner.sendTransaction({ to: userAddress, value: ethers.parseEther(amount) });
@@ -3395,7 +3406,11 @@
         refreshBalance();
         refreshWalletModalBalance();
       } catch (err) {
-        showToast(err.reason || err.message || 'Deposit failed', 'error');
+        if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+          showToast('Deposit cancelled', 'warning');
+        } else {
+          showToast(err.reason || err.message || 'Deposit failed', 'error');
+        }
       } finally {
         if (btn) btn.disabled = false;
       }

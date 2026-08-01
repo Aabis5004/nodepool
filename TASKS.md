@@ -60,3 +60,21 @@ Fix tryRestorePrivySession():
 - Make sure the restored session shows email + balance + address in the header, same as a fresh login
 
 Also: if a user is already logged in and tries to log in again, detect the existing session first and just restore it instead of calling loginWithCode (which causes the "already linked" error).
+
+## 5. Fix wallet modal design and MetaMask connect
+Two problems with the wallet modal:
+1. The modal is not displaying as a proper centered popup - it appears as a large transparent panel bleeding over the page content. Fix the modal CSS: it should be a clean centered card with a dark backdrop overlay, proper max-width (440px), rounded corners, and not overlap the hero text behind it.
+2. "Send from MetaMask to this wallet" shows "Not Connected" error. Fix depositFromMetaMask() to automatically prompt MetaMask to connect (eth_requestAccounts) BEFORE trying to send, instead of erroring. If MetaMask isn't installed, show a clear message.
+3. Make the whole wallet modal look premium: proper spacing, the deposit and send sections as clean cards, good padding, matching the app's purple gradient theme.
+
+## 5. Fix wallet modal design and MetaMask connect
+Two problems with the wallet modal:
+1. The modal is not displaying as a proper centered popup - it appears as a large transparent panel bleeding over the page content. Fix the modal CSS: it should be a clean centered card with a dark backdrop overlay, proper max-width (440px), rounded corners, and not overlap the hero text behind it.
+2. "Send from MetaMask to this wallet" shows "Not Connected" error. Fix depositFromMetaMask() to automatically prompt MetaMask to connect (eth_requestAccounts) BEFORE trying to send, instead of erroring. If MetaMask isn't installed, show a clear message.
+3. Make the whole wallet modal look premium: proper spacing, the deposit and send sections as clean cards, good padding, matching the app's purple gradient theme.
+
+## 5. Fix wallet modal design and MetaMask connect
+Two problems with the wallet modal:
+1. The modal is not displaying as a proper centered popup - it appears as a large transparent panel bleeding over the page content. Fix the modal CSS: it should be a clean centered card with a dark backdrop overlay, proper max-width (440px), rounded corners, and not overlap the hero text behind it.
+2. "Send from MetaMask to this wallet" shows "Not Connected" error. Fix depositFromMetaMask() to automatically prompt MetaMask to connect (eth_requestAccounts) BEFORE trying to send, instead of erroring. If MetaMask isn't installed, show a clear message.
+3. Make the whole wallet modal look premium: proper spacing, the deposit and send sections as clean cards, good padding, matching the app's purple gradient theme.
