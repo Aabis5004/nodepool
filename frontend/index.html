@@ -53,19 +53,19 @@
       --text-primary: #f5f7fb;
       --text-secondary: #a8b1c4;
       --text-muted: #6b7488;
-      --accent-purple: #8b5cf6;
+      --accent-purple: #7C5CFC;
       --accent-blue: #3b82f6;
       --accent-cyan: #22d3ee;
-      --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+      --accent-gradient: linear-gradient(135deg, #7C5CFC 0%, #6E56CF 100%);
       --accent-gradient-wide: linear-gradient(120deg, #a78bfa 0%, #6366f1 45%, #22d3ee 100%);
-      --success: #10b981;
+      --success: #16C784;
       --error: #ef4444;
       --warning: #f59e0b;
-      --glow-purple: 0 0 24px rgba(139, 92, 246, 0.28);
+      --glow-purple: 0 0 24px rgba(124, 92, 252, 0.30);
       --glow-blue: 0 0 24px rgba(59, 130, 246, 0.28);
       --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.75);
       --header-h: 72px;
-      --radius: 16px;
+      --radius: 14px;
     }
 
     * {
@@ -2360,6 +2360,189 @@
     }
     .modal { animation: modalPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
     .modal-overlay.active { animation: fadeIn 0.2s ease; }
+
+    /* ============ TRANSACTION COMPLETED MODAL ============ */
+    .tx-success-overlay {
+      position: fixed;
+      inset: 0;
+      /* Maximum stacking order — a settled transaction must never be clipped or covered */
+      z-index: 2147483647;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(6, 8, 16, 0.72);
+      backdrop-filter: blur(6px);
+      animation: fadeIn 0.18s ease;
+    }
+    .tx-success-overlay.leaving { animation: fadeIn 0.18s ease reverse forwards; }
+
+    .tx-success-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      padding: 2rem 1.75rem 1.6rem;
+      text-align: center;
+      box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
+      animation: txSuccessPop 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes txSuccessPop {
+      from { opacity: 0; transform: scale(0.9) translateY(14px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .tx-success-check {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 1.15rem;
+      border-radius: 50%;
+      background: #16C784;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 8px rgba(22, 199, 132, 0.14), 0 8px 26px rgba(22, 199, 132, 0.42);
+    }
+    /* Draw the tick on, so the confirmation feels like it completes */
+    .tx-success-check path {
+      stroke-dasharray: 48;
+      stroke-dashoffset: 48;
+      animation: txCheckDraw 0.42s cubic-bezier(0.65, 0, 0.35, 1) 0.14s forwards;
+    }
+    @keyframes txCheckDraw { to { stroke-dashoffset: 0; } }
+
+    .tx-success-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+    }
+
+    .tx-success-details {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      margin-bottom: 1.4rem;
+      text-align: left;
+    }
+    .tx-success-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.9rem;
+    }
+    .tx-success-row + .tx-success-row { margin-top: 0.6rem; }
+    .tx-success-row span { color: var(--text-muted); }
+    .tx-success-row strong { font-weight: 700; }
+    .tx-success-row a {
+      color: var(--accent-purple);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82rem;
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(139, 92, 246, 0.5);
+    }
+    .tx-success-row a:hover { color: #a78bfa; }
+
+    .tx-success-actions { display: flex; gap: 0.7rem; }
+    .tx-btn {
+      flex: 1;
+      padding: 0.8rem 1rem;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .tx-btn:hover { transform: translateY(-1px); }
+    .tx-btn-primary {
+      background: linear-gradient(135deg, #7C5CFC 0%, #6E56CF 100%);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(124, 92, 252, 0.35);
+    }
+    .tx-btn-secondary {
+      background: var(--bg-glass);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .tx-btn-secondary:hover { border-color: var(--accent-purple); }
+
+    @media (max-width: 480px) {
+      .tx-success-actions { flex-direction: column; }
+    }
+
+    /* ============ RELAY.LINK VISUAL LANGUAGE ============
+       Sharp 14px corners instead of soft pills, generous padding, higher-contrast surfaces
+       and confident typography. Driven mostly off the tokens above so marketplace, rentals,
+       dashboard, wallet and every card/button inherit it without markup changes. */
+
+    /* Surfaces: sharper corners, more breathing room, cleaner depth */
+    .card,
+    .modal,
+    .wallet-modal-card,
+    .stat-card,
+    .machine-card,
+    .rental-card,
+    .feature-card,
+    .step-card {
+      border-radius: 14px;
+      box-shadow: 0 8px 28px -12px rgba(0, 0, 0, 0.55);
+    }
+    .card, .machine-card, .rental-card { padding: 1.65rem; }
+    .modal { padding: 2rem; }
+
+    /* Higher-contrast edges so cards read as distinct panels, not washes */
+    .card, .stat-card, .feature-card, .step-card {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.012)), var(--bg-elevated);
+    }
+
+    /* Buttons: solid purple primary, light secondary, slight rounding */
+    .btn {
+      border-radius: 12px;
+      font-weight: 700;
+      letter-spacing: 0.005em;
+      padding: 0.78rem 1.4rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #7C5CFC 0%, #6E56CF 100%);
+      box-shadow: 0 8px 22px -8px rgba(124, 92, 252, 0.75);
+    }
+    .btn-primary:hover:not(:disabled) {
+      box-shadow: 0 12px 30px -8px rgba(124, 92, 252, 0.9);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text-primary);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.11);
+      border-color: var(--accent-purple);
+    }
+
+    /* Inputs echo the same sharpness */
+    .form-input, .form-select, .form-textarea { border-radius: 12px; }
+
+    /* Typography: bolder, tighter, more confident */
+    .section-title { font-weight: 800; letter-spacing: -0.025em; }
+    .modal-title   { font-weight: 800; letter-spacing: -0.025em; }
+    .stat-value    { font-weight: 800; letter-spacing: -0.03em; }
+    .spec-label    { letter-spacing: 0.01em; }
+
+    /* Status pills / badges: sharper, denser */
+    .status-pill, .rental-status, .os-badge, .uptime-badge { border-radius: 8px; font-weight: 700; }
+
+    /* Toasts adopt the same corner language */
+    .toast { border-radius: 14px; }
   </style>
 </head>
 <body>
@@ -2409,7 +2592,7 @@
       <div class="wallet-modal-section">
         <div class="wallet-modal-section-label">Add funds — send ETH here</div>
         <div style="display:flex;gap:6px;align-items:center">
-          <code id="wmAddress" style="flex:1;font-size:0.7rem;word-break:break-all;color:var(--accent-purple)">...</code>
+          <code id="wmAddress" style="flex:1;min-width:0;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent-purple)" title="Full address — use Copy">...</code>
           <button class="btn btn-secondary" style="padding:5px 10px;font-size:0.7rem;white-space:nowrap" onclick="copyWalletAddress()">Copy</button>
         </div>
       </div>
@@ -3165,13 +3348,25 @@
       initReveal();
       initFooterLinks();
       renderWalletControls();
-      checkWalletConnection();
-      ensurePrivyReady().then(() => tryRestorePrivySession()).catch(() => {});
+      restoreSession();
       // Public data doesn't need a wallet — load it immediately
       loadLandingStats();
       loadMarketplace();
       loadDashboard();
       startAutoRefresh();
+
+      // Self-check (RELAYFIX step 1): prove the notification layer is alive on every load.
+      // Add ?toasttest=1 to the URL to fire a visible test toast + the completion modal.
+      if (/[?&]toasttest=1/.test(location.search)) {
+        setTimeout(() => {
+          showToast('TEST VISIBLE', 'success');
+          showTxSuccess({
+            title: 'Deposit Completed',
+            detail: '0.0001 ETH',
+            txHash: '0x655abddbff466c35742d9aef79b54ee497ab9e608626262cda72973b203187bb',
+          });
+        }, 2000);
+      }
     });
 
     // Keeps the marketplace, my machines/rentals and dashboard live without a manual refresh —
@@ -3462,6 +3657,40 @@
     }
 
     // Wallet Connection
+    /* ---------- Session restore ----------
+       Which login the user last used is remembered, because both restore paths race on load:
+       checkWalletConnection() auto-connects any already-authorized MetaMask account and sets
+       userAddress, which makes tryRestorePrivySession() bail out of its `if (userAddress)`
+       guards. A user who signed in with email but also happens to have MetaMask installed
+       would therefore come back to wallet mode instead of their email session. Restoring the
+       remembered mode first, and only falling back to the other, keeps the header truthful. */
+    const AUTH_MODE_KEY = 'nodepool.authMode';
+
+    function rememberAuthMode(mode) {
+      try { mode ? localStorage.setItem(AUTH_MODE_KEY, mode) : localStorage.removeItem(AUTH_MODE_KEY); }
+      catch { /* private mode / storage disabled — restore just falls back to the default order */ }
+    }
+
+    function lastAuthMode() {
+      try { return localStorage.getItem(AUTH_MODE_KEY); } catch { return null; }
+    }
+
+    async function restoreSession() {
+      const preferPrivy = lastAuthMode() === 'privy';
+
+      if (preferPrivy) {
+        // Let the email session win the race it would otherwise lose
+        try { await ensurePrivyReady(); await tryRestorePrivySession(); } catch { /* fall through */ }
+        if (!userAddress) await checkWalletConnection().catch(() => {});
+        return;
+      }
+
+      await checkWalletConnection().catch(() => {});
+      if (!userAddress) {
+        ensurePrivyReady().then(() => tryRestorePrivySession()).catch(() => {});
+      }
+    }
+
     async function checkWalletConnection() {
       if (typeof window.ethereum !== 'undefined') {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
@@ -3511,6 +3740,7 @@
         userAddress = await signer.getAddress();
         authMode = 'metamask';
         privyEmail = null;
+        rememberAuthMode('metamask');
 
         renderWalletControls();
 
@@ -3623,6 +3853,7 @@
 
         document.getElementById('wmDepositAmount').value = '';
         showToast(`Deposited ${amount} ETH`, 'success');
+        showTxSuccess({ title: 'Deposit Completed', detail: `${amount} ETH`, txHash: tx.hash });
         // The RPC node's balance read can lag a beat behind the confirmed tx, so back it up
         // with retries at 3s and 6s instead of trusting the first read.
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
@@ -3662,6 +3893,7 @@
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast(`Sent ${amount} ETH`, 'success');
+        showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash: tx.hash });
         document.getElementById('wmSendTo').value = '';
         document.getElementById('wmSendAmount').value = '';
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
@@ -4092,6 +4324,7 @@
       userAddress = account.address;
       authMode = 'privy';
       privyEmail = email || null;
+      rememberAuthMode('privy');
 
       contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
       renderWalletControls();
@@ -4153,6 +4386,7 @@
       authMode = null;
       privyEmail = null;
       pendingEmail = null;
+      rememberAuthMode(null);   // don't resurrect this session on the next load
 
       renderWalletControls();
       showToast('Logged out', 'success');
@@ -4636,6 +4870,11 @@
         document.getElementById('machineForm').style.display = 'none';
         document.getElementById('machineSuccess').style.display = 'block';
         showToast(`Machine listed! (#${machineId})`, 'success');
+        showTxSuccess({
+          title: 'Machine Listed',
+          detail: `Machine #${machineId} · ${machineFieldValue('machinePrice').trim()} ETH/hr`,
+          txHash: tx.hash,
+        });
 
         // Auto-refresh every view that shows machines - retried at 3s/6s in case the RPC
         // node hasn't caught up with the confirmed tx yet
@@ -4658,6 +4897,7 @@
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Machine delisted', 'success');
+        showTxSuccess({ title: 'Machine Delisted', detail: `Machine #${machineId}`, txHash: tx.hash });
         await refreshAfterTx([loadMyMachines, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance]);
       } catch (err) {
         console.error(err);
@@ -4719,6 +4959,11 @@
         await tx.wait();
         showToast('Rental requested! Waiting for provider approval.', 'success');
         closeModal('rentalModal');
+        showTxSuccess({
+          title: 'Rental Confirmed',
+          detail: `${ethers.formatEther(deposit)} ETH · ${hours}h`,
+          txHash: tx.hash,
+        });
         document.getElementById('rentalMessage').value = '';
 
         // Drop the renter straight into My Rentals so the pending request is visible
@@ -4846,6 +5091,7 @@
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental accepted!', 'success');
+        showTxSuccess({ title: 'Rental Accepted', detail: `Rental #${rentalId}`, txHash: tx.hash });
         const acceptRefreshes = [loadMyRentals, loadMyMachines, loadMarketplace, loadDashboard, refreshBalance];
         if (currentChatRentalId == rentalId) acceptRefreshes.push(() => renderRentalDetail(rentalId));
         await refreshAfterTx(acceptRefreshes);
@@ -4862,6 +5108,7 @@
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental declined — deposit refunded!', 'success');
+        showTxSuccess({ title: 'Rental Cancelled', detail: `Rental #${rentalId} · deposit refunded`, txHash: tx.hash });
         const declineRefreshes = [loadMyRentals, loadDashboard, refreshBalance];
         if (currentChatRentalId == rentalId) declineRefreshes.push(() => renderRentalDetail(rentalId));
         await refreshAfterTx(declineRefreshes);
@@ -4880,6 +5127,7 @@
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental ended, funds settled', 'success');
+        showTxSuccess({ title: 'Rental Ended', detail: `Rental #${rentalId} · funds settled`, txHash: tx.hash });
         const endRefreshes = [loadMyRentals, loadMyMachines, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance];
         if (currentChatRentalId == rentalId) endRefreshes.push(() => renderRentalDetail(rentalId));
         await refreshAfterTx(endRefreshes);
@@ -5238,6 +5486,7 @@
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast(`Withdrew ${ethers.formatEther(pending)} ETH`, 'success');
+        showTxSuccess({ title: 'Withdrawal Completed', detail: `${ethers.formatEther(pending)} ETH`, txHash: tx.hash });
         await refreshAfterTx([loadDashboard, refreshBalance]);
       } catch (err) {
         console.error(err);
@@ -5252,6 +5501,65 @@
         clearInterval(resendCooldownInterval);
         resendCooldownInterval = null;
       }
+    }
+
+    /* ---------- Transaction Completed modal ----------
+       The definitive confirmation for a settled transaction. Unlike a toast this does not
+       time out, so it cannot be missed while the user is still in their wallet popup.
+       Built in JS and appended straight to <body> at the top of the stacking order, so no
+       modal/overlay/overflow context in the page can ever clip or cover it. */
+    function showTxSuccess({ title, detail, txHash }) {
+      // Only one at a time — a burst of confirmations shouldn't stack dialogs
+      document.querySelectorAll('.tx-success-overlay').forEach(el => el.remove());
+
+      const overlay = document.createElement('div');
+      overlay.className = 'tx-success-overlay';
+      const explorerUrl = txHash ? `${EXPLORER_URL}/tx/${txHash}` : null;
+      const shortHash = txHash ? `${txHash.slice(0, 10)}…${txHash.slice(-8)}` : null;
+
+      overlay.innerHTML = `
+        <div class="tx-success-card" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+          <div class="tx-success-check" aria-hidden="true">
+            <svg viewBox="0 0 52 52" width="38" height="38">
+              <path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"
+                    stroke-linejoin="round" d="M14 27.5 L22.5 36 L38 17"/>
+            </svg>
+          </div>
+          <h3 class="tx-success-title">${esc(title)}</h3>
+          ${(detail || shortHash) ? `
+            <div class="tx-success-details">
+              ${detail ? `
+                <div class="tx-success-row">
+                  <span>Amount</span><strong>${esc(detail)}</strong>
+                </div>` : ''}
+              ${shortHash ? `
+                <div class="tx-success-row">
+                  <span>Transaction</span>
+                  <a href="${explorerUrl}" target="_blank" rel="noopener">${esc(shortHash)}</a>
+                </div>` : ''}
+            </div>` : ''}
+          <div class="tx-success-actions">
+            ${explorerUrl ? `<a class="tx-btn tx-btn-secondary" href="${explorerUrl}" target="_blank" rel="noopener">VIEW ON BASESCAN</a>` : ''}
+            <button class="tx-btn tx-btn-primary" data-tx-done>DONE</button>
+          </div>
+        </div>
+      `;
+
+      const close = () => {
+        overlay.classList.add('leaving');
+        setTimeout(() => overlay.remove(), 200);
+        document.removeEventListener('keydown', onKey);
+      };
+      const onKey = (e) => { if (e.key === 'Escape') close(); };
+
+      overlay.querySelector('[data-tx-done]').addEventListener('click', close);
+      // Click-outside closes, but clicks inside the card must not
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      document.addEventListener('keydown', onKey);
+
+      document.body.appendChild(overlay);
+      overlay.querySelector('[data-tx-done]').focus();
+      return overlay;
     }
 
     const TOAST_ICONS = { success: '&#10003;', error: '!', warning: '&#8943;', info: 'i' };
