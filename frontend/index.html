@@ -2774,7 +2774,7 @@
         <form onsubmit="verifyEmailCode(event)">
           <div class="form-group">
             <label class="form-label">Verification code</label>
-            <input type="text" class="form-input" id="emailCodeInput" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" required>
+            <input type="text" class="form-input" id="emailCodeInput" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)" required>
           </div>
           <button type="submit" class="btn btn-primary" style="width: 100%;" id="verifyCodeBtn">Verify &amp; Sign In</button>
         </form>
