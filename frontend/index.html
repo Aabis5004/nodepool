@@ -3436,6 +3436,7 @@
       try {
         showToast('Verifying code...', 'warning');
         client = await ensurePrivyReady();
+        try { await client.auth.logout(); } catch (e) { /* no existing session, fine */ }
         const result = await client.auth.email.loginWithCode(pendingEmail, code);
         user = result.user;
       } catch (err) {
