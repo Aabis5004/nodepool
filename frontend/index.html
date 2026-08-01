@@ -1462,27 +1462,32 @@
       position: fixed;
       bottom: 2rem;
       right: 2rem;
-      z-index: 2000;
+      /* Above every modal/overlay in the app — a transaction confirmation must never be
+         hidden behind whatever the user happened to have open when it fired. */
+      z-index: 99999;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.6rem;
+      /* The container spans only its toasts, but clicks must still fall through the gaps */
+      pointer-events: none;
     }
+    .toast-container > * { pointer-events: auto; }
 
     .toast {
       position: relative;
       overflow: hidden;
-      padding: 0.9rem 1rem;
-      padding-right: 2.4rem;
+      padding: 16px 20px;
+      padding-right: 2.6rem;
       border-radius: 12px;
       background: var(--bg-elevated);
       border: 1px solid var(--border-color);
       box-shadow: var(--shadow-lg);
-      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
       display: flex;
       align-items: flex-start;
       gap: 0.7rem;
-      min-width: 280px;
-      max-width: 380px;
+      min-width: 300px;
+      max-width: 400px;
       font-size: 0.9375rem;
       transition: transform 0.2s ease, opacity 0.25s ease;
     }
@@ -1550,6 +1555,10 @@
     .toast.warning { border-color: rgba(245, 158, 11, 0.55); }
     .toast.warning .toast-icon { background: rgba(245, 158, 11, 0.14); color: var(--warning); }
     .toast.warning .toast-progress { background: var(--warning); }
+
+    .toast.info { border-color: rgba(59, 130, 246, 0.55); }
+    .toast.info .toast-icon { background: rgba(59, 130, 246, 0.16); color: var(--accent-blue); }
+    .toast.info .toast-progress { background: var(--accent-blue); }
 
     @keyframes toastCountdown {
       from { transform: scaleX(1); }
@@ -3613,7 +3622,7 @@
         await tx.wait();
 
         document.getElementById('wmDepositAmount').value = '';
-        showToast(`Deposited ${amount} ETH successfully!`, 'success');
+        showToast(`Deposited ${amount} ETH`, 'success');
         // The RPC node's balance read can lag a beat behind the confirmed tx, so back it up
         // with retries at 3s and 6s instead of trusting the first read.
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
@@ -3652,7 +3661,7 @@
         const tx = await signer.sendTransaction({ to, value: ethers.parseEther(amount) });
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast(`Sent ${amount} ETH!`, 'success');
+        showToast(`Sent ${amount} ETH`, 'success');
         document.getElementById('wmSendTo').value = '';
         document.getElementById('wmSendAmount').value = '';
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
@@ -4626,7 +4635,7 @@
         document.getElementById('newMachineId').textContent = `#${machineId}`;
         document.getElementById('machineForm').style.display = 'none';
         document.getElementById('machineSuccess').style.display = 'block';
-        showToast(`Machine #${machineId} listed successfully!`, 'success');
+        showToast(`Machine listed! (#${machineId})`, 'success');
 
         // Auto-refresh every view that shows machines - retried at 3s/6s in case the RPC
         // node hasn't caught up with the confirmed tx yet
@@ -4648,7 +4657,7 @@
         const tx = await contract.delistMachine(machineId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Machine delisted!', 'success');
+        showToast('Machine delisted', 'success');
         await refreshAfterTx([loadMyMachines, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance]);
       } catch (err) {
         console.error(err);
@@ -4708,7 +4717,7 @@
         const tx = await contract.requestRental(machineId, hours, message, { value: deposit });
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Rental confirmed! Waiting for provider approval.', 'success');
+        showToast('Rental requested! Waiting for provider approval.', 'success');
         closeModal('rentalModal');
         document.getElementById('rentalMessage').value = '';
 
@@ -4870,7 +4879,7 @@
         const tx = await contract.endRental(rentalId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast('Rental ended!', 'success');
+        showToast('Rental ended, funds settled', 'success');
         const endRefreshes = [loadMyRentals, loadMyMachines, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance];
         if (currentChatRentalId == rentalId) endRefreshes.push(() => renderRentalDetail(rentalId));
         await refreshAfterTx(endRefreshes);
@@ -5228,7 +5237,7 @@
         const tx = await contract.withdrawEarnings();
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast(`Withdrew ${ethers.formatEther(pending)} ETH!`, 'success');
+        showToast(`Withdrew ${ethers.formatEther(pending)} ETH`, 'success');
         await refreshAfterTx([loadDashboard, refreshBalance]);
       } catch (err) {
         console.error(err);
@@ -5247,10 +5256,31 @@
 
     const TOAST_ICONS = { success: '&#10003;', error: '!', warning: '&#8943;', info: 'i' };
 
+    // The container lives in the static markup, but build it on demand too so a toast can
+    // never be silently swallowed if it fires before/without that element being present.
+    function getToastContainer() {
+      let container = document.getElementById('toastContainer');
+      if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        container.id = 'toastContainer';
+        document.body.appendChild(container);
+      }
+      // Always reattach to <body> so no modal/overflow context can ever clip it
+      if (container.parentElement !== document.body) document.body.appendChild(container);
+      return container;
+    }
+
     // Toasts auto-dismiss on a visible countdown; hovering pauses it, and the
     // close button dismisses immediately.
+    //
+    // The countdown only advances while the page is actually visible. Transactions are
+    // confirmed in a wallet popup that takes focus, so a plain 4s wall-clock timer would
+    // expire while the user is still in MetaMask — they'd come back to an empty screen and
+    // never see that their deposit/rental succeeded. Pausing on hide guarantees the
+    // confirmation is still on screen when they return to the dapp.
     function showToast(message, type = 'info', duration = 4000) {
-      const container = document.getElementById('toastContainer');
+      const container = getToastContainer();
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
       toast.innerHTML = `
@@ -5262,30 +5292,67 @@
       container.appendChild(toast);
 
       const progress = toast.querySelector('.toast-progress');
-      let timer = setTimeout(dismiss, duration);
+      let remaining = duration;
+      let startedAt = null;
+      let timer = null;
+      let dismissed = false;
+      let hovering = false;
+
+      // The user can only "spend" the toast's time when the page is both visible AND
+      // focused. A wallet popup (MetaMask) takes focus while usually leaving the tab
+      // visible, so focus is the signal that actually catches the transaction case;
+      // visibility catches tab switches and minimising.
+      function userIsWatching() {
+        return !document.hidden && document.hasFocus() && !hovering;
+      }
+
+      function pause() {
+        if (dismissed || timer === null) return;
+        clearTimeout(timer);
+        timer = null;
+        if (startedAt !== null) remaining -= Date.now() - startedAt;
+        startedAt = null;
+        progress.style.animationPlayState = 'paused';
+      }
+
+      function resume() {
+        if (dismissed || timer !== null || !userIsWatching()) return;
+        // Guarantee a still-unseen toast a moment on screen rather than expiring instantly
+        if (remaining < 800) remaining = 800;
+        startedAt = Date.now();
+        progress.style.animationPlayState = 'running';
+        timer = setTimeout(dismiss, remaining);
+      }
 
       function dismiss() {
+        if (dismissed) return;
+        dismissed = true;
         clearTimeout(timer);
-        if (toast.classList.contains('leaving')) return;
+        document.removeEventListener('visibilitychange', onActivityChange);
+        window.removeEventListener('focus', onActivityChange);
+        window.removeEventListener('blur', onActivityChange);
         toast.classList.add('leaving');
         setTimeout(() => toast.remove(), 280);
       }
 
-      toast.querySelector('.toast-close').addEventListener('click', dismiss);
+      function onActivityChange() {
+        if (userIsWatching()) resume(); else pause();
+      }
 
-      // Pause the countdown while the pointer is over the toast
-      toast.addEventListener('mouseenter', () => {
-        clearTimeout(timer);
-        progress.style.animationPlayState = 'paused';
-      });
-      toast.addEventListener('mouseleave', () => {
-        progress.style.animationPlayState = 'running';
-        const remaining = parseFloat(getComputedStyle(progress).width) / progress.parentElement.offsetWidth * duration;
-        timer = setTimeout(dismiss, Number.isFinite(remaining) ? Math.max(400, remaining) : duration);
-      });
+      document.addEventListener('visibilitychange', onActivityChange);
+      window.addEventListener('focus', onActivityChange);
+      window.addEventListener('blur', onActivityChange);
+      toast.querySelector('.toast-close').addEventListener('click', dismiss);
+      toast.addEventListener('mouseenter', () => { hovering = true; pause(); });
+      toast.addEventListener('mouseleave', () => { hovering = false; resume(); });
+
+      // Don't start counting down until the toast can actually be seen
+      if (userIsWatching()) resume();
+      else progress.style.animationPlayState = 'paused';
 
       // Keep the stack from growing without bound during bursts of activity
-      while (container.children.length > 4) container.firstElementChild.remove();
+      while (container.children.length > 5) container.firstElementChild.remove();
+      return toast;
     }
 
     // Close modal on outside click
