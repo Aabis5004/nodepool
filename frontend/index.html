@@ -3435,9 +3435,7 @@
       try {
         showToast('Verifying code...', 'warning');
         client = await ensurePrivyReady();
-        const result = await client.auth.email.loginWithCode(pendingEmail, code, 'login-or-sign-up', {
-          embedded: { ethereum: { createOnLogin: 'users-without-wallets' } },
-        });
+        const result = await client.auth.email.loginWithCode(pendingEmail, code);
         user = result.user;
       } catch (err) {
         logPrivyError('email.loginWithCode', err);
