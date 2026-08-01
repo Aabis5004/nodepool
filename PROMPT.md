@@ -1,23 +1,29 @@
-Phase 3: Clean up machine listing and rental UX.
+Phase 4: Rental detail page and UI polish.
 
-1. Machine listing form improvements:
-- Add validation for all fields
-- Add a preview card showing how the listing will look before submitting
-- After listing, auto-refresh the marketplace
-- Show success state with the machine ID
+1. Rental detail view:
+- When clicking any rental in My Rentals, open a full detail panel showing:
+  - Machine specs (CPU, RAM, Storage, OS)
+  - Provider address
+  - Rental status badge (Requested/Active/Completed/Disputed)
+  - Uptime progress bar with percentage
+  - Time elapsed and time remaining
+  - Deposit remaining and amount paid so far
+  - Cancel / End Rental button
+  - Chat section embedded at the bottom with message input
+- This should feel like a proper order detail page
 
-2. Marketplace improvements:
-- Show "No machines yet - be the first to list yours" empty state with a CTA button
-- When a machine card is clicked, open a detail modal showing full specs, provider address, uptime history, and a Rent button
-- Add machine status indicator (green dot = online, red = offline)
+2. Provider view improvements:
+- When provider sees incoming rental request, show renter message, requested hours, deposit amount
+- Accept/Decline buttons with confirmation
+- After accepting, show the active rental with uptime monitoring status
 
-3. Rental flow cleanup:
-- After renting, automatically switch to My Rentals tab
-- Show rental details page when clicking on a rental: machine specs, uptime progress bar, time remaining, deposit remaining, cancel button, and chat section all in one view
-- Chat should only appear inside a rental, not as a separate global tab
+3. UI polish across the whole app:
+- Add smooth page transitions between tabs
+- Loading spinners on all async operations
+- Better empty states with illustrations or icons
+- Toast notifications with auto-dismiss
+- Hover effects on all interactive elements
+- Mobile responsive - test at 375px width
+- Add a subtle gradient border animation on the hero section
 
-4. Remove the standalone Chat tab - chat lives inside each rental detail view only
-
-5. Dashboard cleanup:
-- Fix the "3 Total Machines" count to only show available machines
-- Show recent activity feed (latest listings, rentals, payments)
+4. Fix any broken features or console errors
