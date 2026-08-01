@@ -1,0 +1,13 @@
+{
+  "name": "nodepool-agent",
+  "version": "1.0.0",
+  "description": "NodePool provider agent — reads real machine specs and lists them on the NodePool contract (Base Sepolia)",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0",
+    "dotenv": "^16.4.5"
+  }
+}
