@@ -89,3 +89,31 @@ Two problems with the wallet modal:
    - Above everything else (z-index 1000)
    - Must NOT show page content bleeding through behind the card
    Check why the existing modal CSS isn't applying and fix it.
+
+## 7. Fix CSP blocking Privy RPC + make wallet modal a clean animated popup
+1. CRITICAL CSP BUG: Console shows "base-sepolia.rpc.privy.systems Refused to connect because it violates Content Security Policy". The CSP meta tag we added is blocking Privy's own RPC. Add these to the CSP connect-src: https://*.rpc.privy.systems and https://*.privy.systems and https://base-sepolia-rpc.publicnode.com and all Base Sepolia RPCs. Privy must be able to reach its own RPC.
+
+2. Make the wallet modal a proper SMALL animated popup:
+   - Compact centered card, max-width 400px
+   - Smooth scale+fade animation on open (transform scale 0.95 to 1, opacity 0 to 1, 0.2s ease)
+   - Dark backdrop with blur
+   - The deposit and send sections should be COMPACT, not huge - reduce padding, smaller inputs
+   - Should fit on screen without scrolling if possible
+   - Close on backdrop click or X button
+   - z-index above everything
+
+3. Simplify the deposit flow: one clear "Connect MetaMask & Deposit" button that connects and deposits in one action, with a small amount input above it. Keep it minimal.
+
+## 7. Fix CSP blocking Privy RPC + make wallet modal a clean animated popup
+1. CRITICAL CSP BUG: Console shows "base-sepolia.rpc.privy.systems Refused to connect because it violates Content Security Policy". The CSP meta tag we added is blocking Privy's own RPC. Add these to the CSP connect-src: https://*.rpc.privy.systems and https://*.privy.systems and https://base-sepolia-rpc.publicnode.com and all Base Sepolia RPCs. Privy must be able to reach its own RPC.
+
+2. Make the wallet modal a proper SMALL animated popup:
+   - Compact centered card, max-width 400px
+   - Smooth scale+fade animation on open (transform scale 0.95 to 1, opacity 0 to 1, 0.2s ease)
+   - Dark backdrop with blur
+   - The deposit and send sections should be COMPACT, not huge - reduce padding, smaller inputs
+   - Should fit on screen without scrolling if possible
+   - Close on backdrop click or X button
+   - z-index above everything
+
+3. Simplify the deposit flow: one clear "Connect MetaMask & Deposit" button that connects and deposits in one action, with a small amount input above it. Keep it minimal.
