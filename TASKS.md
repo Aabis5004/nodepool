@@ -78,3 +78,14 @@ Two problems with the wallet modal:
 1. The modal is not displaying as a proper centered popup - it appears as a large transparent panel bleeding over the page content. Fix the modal CSS: it should be a clean centered card with a dark backdrop overlay, proper max-width (440px), rounded corners, and not overlap the hero text behind it.
 2. "Send from MetaMask to this wallet" shows "Not Connected" error. Fix depositFromMetaMask() to automatically prompt MetaMask to connect (eth_requestAccounts) BEFORE trying to send, instead of erroring. If MetaMask isn't installed, show a clear message.
 3. Make the whole wallet modal look premium: proper spacing, the deposit and send sections as clean cards, good padding, matching the app's purple gradient theme.
+
+## 6. Fix RPC endpoint and modal styling (still broken)
+1. RPC ERROR: "RPC endpoint returned too many errors" on Base Sepolia. The public sepolia.base.org RPC is unreliable. Replace it everywhere in the code with a more reliable Base Sepolia RPC. Use https://base-sepolia-rpc.publicnode.com as the default RPC. Update it in: the contract read provider, ensureBaseSepolia() chain config, and anywhere else the RPC URL appears.
+
+2. MODAL STILL BROKEN: The wallet modal is STILL showing as a large panel bleeding over the hero text, not a centered popup. The .modal-overlay and .modal-box CSS is not working. Make the wallet modal:
+   - Fixed position, full screen dark backdrop (rgba(0,0,0,0.7))
+   - Centered card, max-width 420px, max-height 85vh with scroll if needed
+   - Solid dark background (#161622), rounded corners, proper padding
+   - Above everything else (z-index 1000)
+   - Must NOT show page content bleeding through behind the card
+   Check why the existing modal CSS isn't applying and fix it.

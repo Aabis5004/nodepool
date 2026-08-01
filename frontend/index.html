@@ -14,7 +14,7 @@
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https:;
     font-src 'self' data:;
-    connect-src 'self' https://esm.sh https://cdnjs.cloudflare.com https://sepolia.base.org https://sepolia.basescan.org https://*.privy.io wss://*.privy.io;
+    connect-src 'self' https://esm.sh https://cdnjs.cloudflare.com https://base-sepolia-rpc.publicnode.com https://sepolia.basescan.org https://*.privy.io wss://*.privy.io;
     frame-src https://*.privy.io;
     worker-src 'self' blob:;
     object-src 'none';
@@ -2289,44 +2289,50 @@
       <a href="#pricing">Pricing</a>
       <a href="#app">Marketplace</a>
     </nav>
-    <div class="modal-overlay" id="walletModal">
-      <div class="modal" style="max-width:440px">
-        <div class="modal-header">
-          <h3 class="modal-title">Your Wallet</h3>
-          <button class="modal-close" onclick="closeWalletModal()">&times;</button>
-        </div>
-        <div style="text-align:center;padding:0.5rem 0 1.5rem">
-          <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Balance</div>
-          <div id="wmBalance" class="gradient-text" style="font-size:2.25rem;font-weight:800;margin-top:6px">... ETH</div>
-        </div>
-        <div style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem;margin-bottom:1rem">
-          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Add funds — send ETH to this address</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <code id="wmAddress" style="flex:1;font-size:0.75rem;word-break:break-all;color:var(--accent-purple)">...</code>
-            <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.75rem;white-space:nowrap" onclick="copyWalletAddress()">Copy</button>
-          </div>
-          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px">Send Base Sepolia ETH here from MetaMask, an exchange, or a faucet.</div>
-        </div>
-        <!-- Only shown when signed in with the Privy embedded wallet and MetaMask is installed —
-             lets that MetaMask account fund the embedded wallet in one click instead of a manual copy/paste. -->
-        <div id="wmMetaMaskDeposit" style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem;margin-bottom:1rem;display:none">
-          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Deposit from MetaMask</div>
-          <input class="form-input" id="wmDepositAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
-          <button class="btn btn-secondary" style="width:100%" onclick="depositFromMetaMask()" id="wmDepositBtn">Send from MetaMask to this wallet</button>
-        </div>
-        <div style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem">
-          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Send / Withdraw</div>
-          <input class="form-input" id="wmSendTo" placeholder="Recipient address (0x...)" style="margin-bottom:8px">
-          <input class="form-input" id="wmSendAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
-          <button class="btn btn-primary" style="width:100%" onclick="sendFunds()">Send ETH</button>
-        </div>
-      </div>
-    </div>
     <div class="wallet-controls" id="walletControls">
       <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()" disabled>Loading...</button>
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
     </div>
   </header>
+
+  <!-- Deliberately NOT inside <header>: that element has backdrop-filter, which makes it a
+       containing block for position:fixed descendants — a fixed-position modal nested inside it
+       gets clipped/positioned relative to the header's small box instead of the viewport, which
+       is what made this modal render as an uncentered panel bleeding over the page. Every other
+       modal in the app lives outside the header for the same reason. -->
+  <div class="modal-overlay" id="walletModal">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <h3 class="modal-title">Your Wallet</h3>
+        <button class="modal-close" onclick="closeWalletModal()">&times;</button>
+      </div>
+      <div style="text-align:center;padding:0.5rem 0 1.5rem">
+        <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Balance</div>
+        <div id="wmBalance" class="gradient-text" style="font-size:2.25rem;font-weight:800;margin-top:6px">... ETH</div>
+      </div>
+      <div style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem;margin-bottom:1rem">
+        <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Add funds — send ETH to this address</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <code id="wmAddress" style="flex:1;font-size:0.75rem;word-break:break-all;color:var(--accent-purple)">...</code>
+          <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.75rem;white-space:nowrap" onclick="copyWalletAddress()">Copy</button>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px">Send Base Sepolia ETH here from MetaMask, an exchange, or a faucet.</div>
+      </div>
+      <!-- Only shown when signed in with the Privy embedded wallet and MetaMask is installed —
+           lets that MetaMask account fund the embedded wallet in one click instead of a manual copy/paste. -->
+      <div id="wmMetaMaskDeposit" style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem;margin-bottom:1rem;display:none">
+        <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Deposit from MetaMask</div>
+        <input class="form-input" id="wmDepositAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
+        <button class="btn btn-secondary" style="width:100%" onclick="depositFromMetaMask()" id="wmDepositBtn">Send from MetaMask to this wallet</button>
+      </div>
+      <div style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:14px;padding:1.1rem">
+        <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Send / Withdraw</div>
+        <input class="form-input" id="wmSendTo" placeholder="Recipient address (0x...)" style="margin-bottom:8px">
+        <input class="form-input" id="wmSendAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:12px">
+        <button class="btn btn-primary" style="width:100%" onclick="sendFunds()">Send ETH</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ================= HERO ================= -->
   <section class="hero" id="top">
@@ -2937,7 +2943,7 @@
     const CONTRACT_ADDRESS = '0xadC135620B239946321EcF57E7d424FA9d165850';
     const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
     const CHAIN_ID_HEX = '0x14a34'; // 84532
-    const RPC_URL = 'https://sepolia.base.org';
+    const RPC_URL = 'https://base-sepolia-rpc.publicnode.com'; // sepolia.base.org (the public Base RPC) was too flaky — "too many errors"
     const EXPLORER_URL = 'https://sepolia.basescan.org';
     const CHAIN_PARAMS = {
       chainId: CHAIN_ID_HEX,
