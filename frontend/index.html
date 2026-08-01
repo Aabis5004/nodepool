@@ -4,6 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NodePool — Decentralized Cloud Computing</title>
+  <!-- Privy's embedded wallet compiles a WASM module in this frame and runs its secure
+       context in a cross-origin auth.privy.io iframe — script-src needs wasm-unsafe-eval
+       for the former, frame-src/connect-src need privy.io for the latter. Must come before
+       any script/iframe below so it's in effect for all of them. -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://esm.sh;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https:;
+    font-src 'self' data:;
+    connect-src 'self' https://esm.sh https://cdnjs.cloudflare.com https://sepolia.base.org https://sepolia.basescan.org https://*.privy.io wss://*.privy.io;
+    frame-src https://*.privy.io;
+    worker-src 'self' blob:;
+    object-src 'none';
+    base-uri 'self';
+  ">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
   <!-- Privy JS SDK (embedded wallets) — loaded as an ES module and exposed on window.PrivyCore -->
   <script type="module">
