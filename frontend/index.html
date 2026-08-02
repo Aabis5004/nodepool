@@ -2607,7 +2607,7 @@
       </div>
       <div class="wallet-modal-section">
         <div class="wallet-modal-section-label">Send / Withdraw</div>
-        <input class="form-input" id="wmSendTo" placeholder="Recipient address (0x...)" style="margin-bottom:6px;padding:0.55rem 0.75rem;font-size:0.85rem">
+        <input class="form-input" id="wmSendTo" placeholder="Your MetaMask address (0x...)" style="margin-bottom:6px;padding:0.55rem 0.75rem;font-size:0.85rem">
         <input class="form-input" id="wmSendAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:8px;padding:0.55rem 0.75rem;font-size:0.85rem">
         <button class="btn btn-primary" style="width:100%;padding:0.6rem" onclick="sendFunds()">Send ETH</button>
       </div>
@@ -3909,17 +3909,29 @@
     async function sendFunds() {
       const to = document.getElementById('wmSendTo').value.trim();
       const amount = document.getElementById('wmSendAmount').value.trim();
-      if (!to || !amount) { showToast('Enter address and amount', 'error'); return; }
+      if (!to || !amount) { showToast('Enter your MetaMask address and amount', 'error'); return; }
       try {
         showToast('Confirm in your wallet...', 'warning');
         const txObj = { to, value: ethers.parseEther(amount) };
         const estimatedGas = await signer.estimateGas(txObj);
         const gasLimit = (estimatedGas * 120n) / 100n;
-        const tx = await signer.sendTransaction({ ...txObj, gasLimit });
+
+        // Bypass Ethers transaction signing and Viem bugs by sending a raw RPC call 
+        // to the provider with explicitly formatted hex properties. 
+        const rawTx = {
+          from: userAddress,
+          to: to,
+          value: ethers.toBeHex(ethers.parseEther(amount)),
+          gas: ethers.toBeHex(gasLimit)
+        };
+        const txHash = await provider.send('eth_sendTransaction', [rawTx]);
+
         showToast('Confirming transaction...', 'warning');
-        await tx.wait();
+        // Wait for the tx to settle
+        const receipt = await provider.waitForTransaction(txHash);
+        
         showToast(`Sent ${amount} ETH`, 'success');
-        showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash: tx.hash });
+        showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash: txHash });
         document.getElementById('wmSendTo').value = '';
         document.getElementById('wmSendAmount').value = '';
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
