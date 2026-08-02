@@ -11,9 +11,9 @@
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://esm.sh;
-    style-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: https:;
-    font-src 'self' data:;
+    font-src 'self' data: https://fonts.gstatic.com;
     connect-src 'self' https://esm.sh https://cdnjs.cloudflare.com https://base-sepolia-rpc.publicnode.com https://sepolia.base.org https://*.publicnode.com https://sepolia.basescan.org https://*.privy.io https://*.privy.systems https://*.rpc.privy.systems wss://*.privy.io wss://*.privy.systems;
     frame-src https://*.privy.io;
     worker-src 'self' blob:;
@@ -42,30 +42,32 @@
     }
   </script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
     :root {
-      --bg-primary: #070a12;
-      --bg-secondary: #0d1220;
-      --bg-elevated: #121a2b;
-      --bg-card: rgba(18, 26, 43, 0.72);
-      --bg-glass: rgba(255, 255, 255, 0.045);
-      --border-color: rgba(255, 255, 255, 0.09);
-      --border-strong: rgba(255, 255, 255, 0.16);
-      --text-primary: #f5f7fb;
-      --text-secondary: #a8b1c4;
-      --text-muted: #6b7488;
-      --accent-purple: #7C5CFC;
+      --bg-primary: #000000;
+      --bg-secondary: #09090b;
+      --bg-elevated: #111113;
+      --bg-card: rgba(17, 17, 19, 0.72);
+      --bg-glass: rgba(255, 255, 255, 0.05);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.12);
+      --text-primary: #ffffff;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent-purple: #7000FF;
       --accent-blue: #3b82f6;
       --accent-cyan: #22d3ee;
-      --accent-gradient: linear-gradient(135deg, #7C5CFC 0%, #6E56CF 100%);
-      --accent-gradient-wide: linear-gradient(120deg, #a78bfa 0%, #6366f1 45%, #22d3ee 100%);
+      --accent-gradient: linear-gradient(135deg, #7000FF 0%, #A855F7 100%);
+      --accent-gradient-wide: linear-gradient(120deg, #A855F7 0%, #7000FF 45%, #22d3ee 100%);
       --success: #16C784;
       --error: #ef4444;
       --warning: #f59e0b;
-      --glow-purple: 0 0 24px rgba(124, 92, 252, 0.30);
-      --glow-blue: 0 0 24px rgba(59, 130, 246, 0.28);
-      --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.75);
+      --glow-purple: 0 0 32px rgba(112, 0, 255, 0.4);
+      --glow-blue: 0 0 32px rgba(59, 130, 246, 0.3);
+      --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.9);
       --header-h: 72px;
-      --radius: 14px;
+      --radius: 16px;
     }
 
     * {
@@ -79,7 +81,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Ubuntu, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg-primary);
       color: var(--text-primary);
       min-height: 100vh;
@@ -1063,19 +1065,20 @@
 
     /* Buttons */
     .btn {
-      padding: 0.7rem 1.35rem;
-      border-radius: 10px;
+      padding: 0.75rem 1.4rem;
+      border-radius: 16px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.25s ease;
       border: none;
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
       font-family: inherit;
     }
 
     .btn-primary {
       background: var(--accent-gradient);
       color: white;
+      box-shadow: 0 8px 24px -8px rgba(112, 0, 255, 0.6);
     }
 
     .btn-primary:hover {
@@ -1170,12 +1173,10 @@
     /* Modal */
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(3, 5, 10, 0.82);
-      backdrop-filter: blur(6px);
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -1189,10 +1190,10 @@
 
     .modal {
       background: var(--bg-elevated);
-      border: 1px solid var(--border-strong);
-      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
       padding: 2rem;
-      max-width: 500px;
+      max-width: 480px;
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
@@ -2088,7 +2089,7 @@
     /* ============ FOOTER ============ */
     .footer {
       border-top: 1px solid var(--border-color);
-      background: linear-gradient(180deg, rgba(13, 18, 32, 0.5), rgba(7, 10, 18, 1));
+      background: var(--bg-secondary);
       padding: 4rem 2rem 2rem;
     }
 
@@ -2355,10 +2356,10 @@
     /* Modals scale up as they fade in instead of only sliding, so they feel like they
        come forward rather than drift down. */
     @keyframes modalPopIn {
-      from { opacity: 0; transform: scale(0.94) translateY(12px); }
-      to   { opacity: 1; transform: scale(1) translateY(0); }
+      from { opacity: 0; transform: translateY(24px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
-    .modal { animation: modalPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+    .modal { animation: modalPopIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); border-radius: 24px; }
     .modal-overlay.active { animation: fadeIn 0.2s ease; }
 
     /* ============ TRANSACTION COMPLETED MODAL ============ */
@@ -2371,9 +2372,10 @@
       align-items: center;
       justify-content: center;
       padding: 1rem;
-      background: rgba(6, 8, 16, 0.72);
-      backdrop-filter: blur(6px);
-      animation: fadeIn 0.18s ease;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      animation: fadeIn 0.2s ease;
     }
     .tx-success-overlay.leaving { animation: fadeIn 0.18s ease reverse forwards; }
 
@@ -2507,17 +2509,18 @@
 
     /* Buttons: solid purple primary, light secondary, slight rounding */
     .btn {
-      border-radius: 12px;
-      font-weight: 700;
+      border-radius: 16px;
+      font-weight: 600;
       letter-spacing: 0.005em;
       padding: 0.78rem 1.4rem;
     }
     .btn-primary {
-      background: linear-gradient(135deg, #7C5CFC 0%, #6E56CF 100%);
-      box-shadow: 0 8px 22px -8px rgba(124, 92, 252, 0.75);
+      background: var(--accent-gradient);
+      box-shadow: 0 8px 22px -8px rgba(112, 0, 255, 0.75);
     }
     .btn-primary:hover:not(:disabled) {
-      box-shadow: 0 12px 30px -8px rgba(124, 92, 252, 0.9);
+      box-shadow: 0 12px 30px -8px rgba(112, 0, 255, 0.9);
+      transform: translateY(-1px);
     }
     .btn-secondary {
       background: rgba(255, 255, 255, 0.07);
@@ -3909,7 +3912,10 @@
       if (!to || !amount) { showToast('Enter address and amount', 'error'); return; }
       try {
         showToast('Confirm in your wallet...', 'warning');
-        const tx = await signer.sendTransaction({ to, value: ethers.parseEther(amount), gasLimit: 21000n });
+        const txObj = { to, value: ethers.parseEther(amount) };
+        const estimatedGas = await signer.estimateGas(txObj);
+        const gasLimit = (estimatedGas * 120n) / 100n;
+        const tx = await signer.sendTransaction({ ...txObj, gasLimit });
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast(`Sent ${amount} ETH`, 'success');
