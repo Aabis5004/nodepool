@@ -2569,7 +2569,7 @@
       <a href="#app">Marketplace</a>
     </nav>
     <div class="wallet-controls" id="walletControls">
-      <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()" disabled>Loading...</button>
+      <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
     </div>
   </header>
@@ -3709,6 +3709,7 @@
 
     async function checkWalletConnection() {
       if (typeof window.ethereum !== 'undefined') {
+        if (lastAuthMode() !== 'metamask') return;
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
           await connectWallet();
@@ -3868,6 +3869,7 @@
         await tx.wait();
 
         document.getElementById('wmDepositAmount').value = '';
+        document.getElementById('walletModal').classList.remove('active');
         showToast(`Deposited ${amount} ETH`, 'success');
         showTxSuccess({ title: 'Deposit Completed', detail: `${amount} ETH`, txHash: tx.hash });
         // The RPC node's balance read can lag a beat behind the confirmed tx, so back it up
@@ -4134,7 +4136,7 @@
     // user.get() call can then throw as if there's no session at all, even though one genuinely
     // exists. A spent login code coming back "already linked" is proof of that exact race. Retry
     // briefly instead of concluding the user is logged out.
-    async function getPrivyUserWithRetry(client, attempts = 4, delayMs = 400) {
+    async function getPrivyUserWithRetry(client, attempts = 15, delayMs = 400) {
       let lastErr;
       for (let i = 0; i < attempts; i++) {
         try {
