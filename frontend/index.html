@@ -4145,7 +4145,7 @@
       let lastErr;
       for (let i = 0; i < attempts; i++) {
         try {
-          const { user } = await client.user.get();
+          const user = await client.user.get();
           if (user) return user;
           lastErr = new Error('user.get() resolved with no user');
         } catch (err) {
@@ -4325,7 +4325,7 @@
       try {
         const client = await ensurePrivyReady();
         client.embeddedWallet.reload(); // drop a half-broken iframe and re-handshake
-        const { user } = await client.user.get();
+        const user = await client.user.get();
         await finishPrivyLogin(client, user, pendingEmail);
         closeModal('emailModal');
       } catch (err) {
