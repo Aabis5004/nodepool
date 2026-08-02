@@ -4154,25 +4154,18 @@
       console.log('[Privy] ensureEmbeddedWalletReady: iframe responded');
     }
 
-    // client.initialize() can resolve before the SDK's own background session-refresh (exchanging
-    // the persisted refresh token for a fresh access token) has actually landed — an immediate
-    // user.get() call can then throw as if there's no session at all, even though one genuinely
-    // exists. A spent login code coming back "already linked" is proof of that exact race. Retry
-    // briefly instead of concluding the user is logged out.
-    async function getPrivyUserWithRetry(client, attempts = 15, delayMs = 400) {
-      let lastErr;
-      for (let i = 0; i < attempts; i++) {
-        try {
-          const user = await client.user.get();
-          if (user) return user;
-          lastErr = new Error('user.get() resolved with no user');
-        } catch (err) {
-          lastErr = err;
-        }
-        console.log(`[Privy] getPrivyUserWithRetry: attempt ${i + 1}/${attempts} failed —`, lastErr && lastErr.message);
-        if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
+    // In js-sdk-core, client.initialize() automatically checks storage and sets authenticated state.
+    async function getPrivyUserWithRetry(client) {
+      if (!client.authenticated) {
+        throw new Error('Not authenticated');
       }
-      throw lastErr;
+      
+      const res = await client.user.get();
+      // Handle both { user: User } envelope and direct User object depending on SDK version
+      const user = res && res.user ? res.user : res;
+      if (!user) throw new Error('user.get() resolved with no user');
+      
+      return user;
     }
 
     function showEmailStep(step) {
@@ -4236,7 +4229,7 @@
       // session fails with a 422 "already linked" from Privy instead of just working.
       try {
         const client = await ensurePrivyReady();
-        const user = await getPrivyUserWithRetry(client, 2, 300);
+        const user = await getPrivyUserWithRetry(client);
         if (userAddress) return;
         console.log('[Privy] openEmailModal: existing session found — restoring instead of sending a new code');
         const emailAccount = (user.linked_accounts || []).find(a => a.type === 'email');
@@ -4306,7 +4299,7 @@
         client = await ensurePrivyReady();
         // If already authenticated with this email, reuse the session instead of re-linking
         try {
-          const existing = await getPrivyUserWithRetry(client, 2, 300);
+          const existing = await getPrivyUserWithRetry(client);
           const hasEmail = (existing.linked_accounts || []).some(a => a.type === 'email' && a.address === pendingEmail);
           if (hasEmail) { user = existing; }
         } catch (e) { /* no session, proceed to fresh login */ }
@@ -4450,6 +4443,19 @@
       showToast('Logged out', 'success');
       loadMarketplace();
       loadDashboard();
+    }
+
+    // Helper: Wraps contract calls to explicitly estimate and pad gas by 20%.
+    // This is required because Privy's embedded wallet (viem) sometimes ignores
+    // Ethers v6's automatic gas estimation on Base Sepolia and throws "intrinsic gas too low".
+    async function txWithGas(contractMethod, ...args) {
+      const hasOverrides = args.length > 0 && typeof args[args.length - 1] === 'object' && !Array.isArray(args[args.length - 1]);
+      const overrides = hasOverrides ? args.pop() : {};
+      
+      const estimatedGas = await contractMethod.estimateGas(...args, overrides);
+      overrides.gasLimit = (estimatedGas * 120n) / 100n;
+      
+      return await contractMethod(...args, overrides);
     }
 
     // Load All Data
@@ -4923,7 +4929,7 @@
         btn.textContent = 'Listing…';
         showToast('Confirm the listing in your wallet...', 'warning');
 
-        const tx = await contract.listMachine(cpu, ram, storage, os, price, endpoint);
+        const tx = await txWithGas(contract.listMachine, cpu, ram, storage, os, price, endpoint);
         showToast('Confirming transaction...', 'warning');
         const receipt = await tx.wait();
 
@@ -4966,8 +4972,8 @@
       if (!confirm('Are you sure you want to delist this machine?')) return;
 
       try {
-        showToast('Confirm delisting in your wallet...', 'warning');
-        const tx = await contract.delistMachine(machineId);
+        showToast('Confirm the delisting in your wallet...', 'warning');
+        const tx = await txWithGas(contract.delistMachine, machineId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Machine delisted', 'success');
@@ -5027,8 +5033,8 @@
       const deposit = currentRentalMachine.pricePerHour * BigInt(hours);
 
       try {
-        showToast('Confirm the deposit in your wallet...', 'warning');
-        const tx = await contract.requestRental(machineId, hours, message, { value: deposit });
+        showToast('Confirm the rental and deposit in your wallet...', 'warning');
+        const tx = await txWithGas(contract.requestRental, machineId, hours, message, { value: deposit });
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental requested! Waiting for provider approval.', 'success');
@@ -5160,8 +5166,8 @@
 
     async function acceptRental(rentalId) {
       try {
-        showToast('Confirm acceptance in your wallet...', 'warning');
-        const tx = await contract.acceptRental(rentalId);
+        showToast('Confirm accepting the rental...', 'warning');
+        const tx = await txWithGas(contract.acceptRental, rentalId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental accepted!', 'success');
@@ -5177,8 +5183,8 @@
 
     async function declineRental(rentalId) {
       try {
-        showToast('Confirm in your wallet...', 'warning');
-        const tx = await contract.declineRental(rentalId);
+        showToast('Confirm declining the rental...', 'warning');
+        const tx = await txWithGas(contract.declineRental, rentalId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental declined — deposit refunded!', 'success');
@@ -5196,8 +5202,8 @@
       if (!confirm('Are you sure you want to end this rental?')) return;
 
       try {
-        showToast('Confirm in your wallet...', 'warning');
-        const tx = await contract.endRental(rentalId);
+        showToast('Confirm terminating the rental...', 'warning');
+        const tx = await txWithGas(contract.endRental, rentalId);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental ended, funds settled', 'success');
@@ -5401,9 +5407,9 @@
 
       try {
         input.value = '';
-        showToast('Sending message...', 'warning', 2000);
-        const tx = await contract.sendMessage(currentChatRentalId, text);
-        showToast('Confirming transaction...', 'warning', 2000);
+        showToast('Confirm message in your wallet...', 'warning');
+        const tx = await txWithGas(contract.sendMessage, currentChatRentalId, text);
+        showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Message sent!', 'success', 2000);
         await refreshAfterTx([() => loadMessages(currentChatRentalId)]);
@@ -5556,7 +5562,7 @@
         }
 
         showToast('Confirm the withdrawal in your wallet...', 'warning');
-        const tx = await contract.withdrawEarnings();
+        const tx = await txWithGas(contract.withdrawEarnings);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast(`Withdrew ${ethers.formatEther(pending)} ETH`, 'success');
