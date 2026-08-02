@@ -3918,17 +3918,14 @@
 
         // Bypass Ethers transaction signing and Viem bugs by sending a raw RPC call 
         // to the provider with explicitly formatted hex properties. 
-        const rawTx = {
-          from: userAddress,
+        const tx = await signer.sendTransaction({
           to: to,
-          value: ethers.toBeHex(ethers.parseEther(amount)),
-          gas: ethers.toBeHex(gasLimit)
-        };
-        const txHash = await provider.send('eth_sendTransaction', [rawTx]);
-
+          value: ethers.parseEther(amount),
+          gasLimit: gasLimit
+        });
         showToast('Confirming transaction...', 'warning');
-        // Wait for the tx to settle
-        const receipt = await provider.waitForTransaction(txHash);
+        await tx.wait();
+        const txHash = tx.hash;
         
         showToast(`Sent ${amount} ETH`, 'success');
         showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash: txHash });
