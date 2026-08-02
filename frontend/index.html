@@ -3673,6 +3673,7 @@
        would therefore come back to wallet mode instead of their email session. Restoring the
        remembered mode first, and only falling back to the other, keeps the header truthful. */
     const AUTH_MODE_KEY = 'nodepool.authMode';
+    let isRestoringSession = false;
 
     function rememberAuthMode(mode) {
       try { mode ? localStorage.setItem(AUTH_MODE_KEY, mode) : localStorage.removeItem(AUTH_MODE_KEY); }
@@ -3684,26 +3685,27 @@
     }
 
     async function restoreSession() {
-      const preferPrivy = lastAuthMode() === 'privy';
-
-      // Boot the Privy SDK on every load, whichever login ends up winning below. It also
-      // drives the "Sign in with Email" button: while privySdkStatus is 'loading' that button
-      // renders disabled with the label "Loading...". Gating this call behind "no wallet
-      // connected" meant an auto-connecting MetaMask skipped it entirely, so the status never
-      // left 'loading' and the header stayed stuck on a dead "Loading..." button the moment
-      // the user signed out — with no way to recover short of a reload.
-      const privyReady = ensurePrivyReady().catch(() => {}); // settles either way; status is set inside
-
-      if (preferPrivy) {
-        // Let the email session win the race it would otherwise lose to MetaMask
-        try { await privyReady; await tryRestorePrivySession(); } catch { /* fall through */ }
-        if (!userAddress) await checkWalletConnection().catch(() => {});
-        return;
+      if (lastAuthMode()) {
+        isRestoringSession = true;
+        renderWalletControls();
       }
 
-      await checkWalletConnection().catch(() => {});
-      if (!userAddress) {
-        privyReady.then(() => tryRestorePrivySession()).catch(() => {});
+      const preferPrivy = lastAuthMode() === 'privy';
+      const privyReady = ensurePrivyReady().catch(() => {}); 
+
+      if (preferPrivy) {
+        try { await privyReady; await tryRestorePrivySession(); } catch { /* fall through */ }
+        if (!userAddress) await checkWalletConnection().catch(() => {});
+      } else {
+        await checkWalletConnection().catch(() => {});
+        if (!userAddress) {
+          privyReady.then(() => tryRestorePrivySession()).catch(() => {});
+        }
+      }
+
+      if (isRestoringSession) {
+        isRestoringSession = false;
+        renderWalletControls();
       }
     }
 
@@ -3907,7 +3909,7 @@
       if (!to || !amount) { showToast('Enter address and amount', 'error'); return; }
       try {
         showToast('Confirm in your wallet...', 'warning');
-        const tx = await signer.sendTransaction({ to, value: ethers.parseEther(amount) });
+        const tx = await signer.sendTransaction({ to, value: ethers.parseEther(amount), gasLimit: 21000n });
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast(`Sent ${amount} ETH`, 'success');
@@ -3922,9 +3924,12 @@
       if (!el) return;
 
       if (!userAddress) {
-        // The button stays enabled while the SDK boots. On the live site that boot takes
-        // 5-9s, and a disabled "Loading..." for that long reads as a broken/hung page.
-        // openEmailModal() already awaits readiness, so an early click just waits.
+        if (isRestoringSession) {
+          el.innerHTML = `
+            <button class="wallet-btn wallet-btn-outline" disabled style="opacity:0.7">Restoring session...</button>
+          `;
+          return;
+        }
         el.innerHTML = `
           <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
           <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
