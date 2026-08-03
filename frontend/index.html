@@ -4,51 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NodePool — Decentralized Cloud Computing</title>
-  <!-- Privy's embedded wallet compiles a WASM module in this frame and runs its secure
-       context in a cross-origin auth.privy.io iframe — script-src needs wasm-unsafe-eval
-       for the former, frame-src/connect-src need privy.io for the latter. Must come before
-       any script/iframe below so it's in effect for all of them. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://esm.sh;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: https:;
     font-src 'self' data: https://fonts.gstatic.com;
-    connect-src 'self' https://esm.sh https://cdnjs.cloudflare.com https://base-sepolia-rpc.publicnode.com https://sepolia.base.org https://*.publicnode.com https://sepolia.basescan.org https://*.privy.io https://*.privy.systems https://*.rpc.privy.systems wss://*.privy.io wss://*.privy.systems;
-    frame-src https://*.privy.io;
+    connect-src 'self' https://cdnjs.cloudflare.com https://base-sepolia-rpc.publicnode.com https://sepolia.base.org https://*.publicnode.com https://sepolia.basescan.org;
     worker-src 'self' blob:;
     object-src 'none';
     base-uri 'self';
   ">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
-  <!-- Privy JS SDK (embedded wallets) — loaded as an ES module and exposed on window.PrivyCore -->
-  <script type="module">
-    try {
-      const [core, chains, viem, viemChains] = await Promise.all([
-        import('https://esm.sh/@privy-io/js-sdk-core@0.68.5'),
-        import('https://esm.sh/@privy-io/chains@0.5.2'),
-        import('https://esm.sh/viem@2.21.0'),
-        import('https://esm.sh/viem@2.21.0/chains'),
-      ]);
-      window.PrivyCore = {
-        Privy: core.default,
-        LocalStorage: core.LocalStorage,
-        getUserEmbeddedEthereumWallet: core.getUserEmbeddedEthereumWallet,
-        getEntropyDetailsFromAccount: core.getEntropyDetailsFromAccount,
-        baseSepolia: chains.baseSepolia,
-      };
-      window.Viem = {
-        createWalletClient: viem.createWalletClient,
-        custom: viem.custom,
-        parseEther: viem.parseEther,
-        baseSepolia: viemChains.baseSepolia,
-      };
-    } catch (err) {
-      // Surface CDN/module failures instead of leaving the page polling forever
-      console.error('[Privy] SDK module failed to load:', err);
-      window.PrivyCoreError = err;
-    }
-  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -2581,7 +2548,6 @@
     </nav>
     <div class="wallet-controls" id="walletControls">
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
-      <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
     </div>
   </header>
 
@@ -2606,12 +2572,6 @@
           <code id="wmAddress" style="flex:1;min-width:0;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent-purple)" title="Full address — use Copy">...</code>
           <button class="btn btn-secondary" style="padding:5px 10px;font-size:0.7rem;white-space:nowrap" onclick="copyWalletAddress()">Copy</button>
         </div>
-      </div>
-      <!-- Only shown when signed in with the Privy embedded wallet and MetaMask is installed. One
-           button connects MetaMask and sends in a single action — no separate "connect" step. -->
-      <div id="wmMetaMaskDeposit" class="wallet-modal-section" style="display:none">
-        <input class="form-input" id="wmDepositAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:8px;padding:0.55rem 0.75rem;font-size:0.85rem">
-        <button class="btn btn-secondary" style="width:100%;padding:0.6rem" onclick="depositFromMetaMask()" id="wmDepositBtn">Connect MetaMask &amp; Deposit</button>
       </div>
       <div class="wallet-modal-section">
         <div class="wallet-modal-section-label">Send / Withdraw</div>
@@ -3169,47 +3129,14 @@
     </div>
   </div>
 
-  <!-- Email Sign-in Modal (Privy embedded wallet) -->
-  <div class="modal-overlay" id="emailModal">
+  <!-- Injected-wallet picker (EIP-6963) — shown when more than one wallet extension announces itself -->
+  <div class="modal-overlay" id="walletPickerModal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Sign in with Email</h3>
-        <button class="modal-close" onclick="closeModal('emailModal')">&times;</button>
+        <h3 class="modal-title">Choose a wallet</h3>
+        <button class="modal-close" onclick="closeModal('walletPickerModal')">&times;</button>
       </div>
-      <div id="emailStep">
-        <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9375rem;">
-          We'll create a secure embedded wallet for you — no browser extension needed.
-        </p>
-        <form onsubmit="sendEmailCode(event)">
-          <div class="form-group">
-            <label class="form-label">Email address</label>
-            <input type="email" class="form-input" id="emailInput" placeholder="you@example.com" required>
-          </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%;">Send Code</button>
-        </form>
-      </div>
-      <div id="codeStep" style="display: none;">
-        <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9375rem;">
-          We sent a code to <strong id="codeStepEmail"></strong>.
-        </p>
-        <form onsubmit="verifyEmailCode(event)">
-          <div class="form-group">
-            <label class="form-label">Verification code</label>
-            <input type="text" class="form-input" id="emailCodeInput" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)" required>
-          </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%;" id="verifyCodeBtn">Verify &amp; Sign In</button>
-        </form>
-        <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 0.75rem;" id="resendCodeBtn" onclick="resendEmailCode()" disabled>Resend code</button>
-      </div>
-      <!-- Shown when the code was accepted but the embedded wallet failed to load. The code is
-           already spent at this point, so we offer a wallet retry instead of a second code entry. -->
-      <div id="walletStep" style="display: none;">
-        <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9375rem;">
-          You're signed in, but your embedded wallet didn't load.
-          <span id="walletStepError" style="color: var(--error); display: block; margin-top: 0.5rem;"></span>
-        </p>
-        <button class="btn btn-primary" style="width: 100%;" id="walletRetryBtn" onclick="retryWalletSetup()">Retry Wallet Setup</button>
-      </div>
+      <div id="walletPickerList"></div>
     </div>
   </div>
 
@@ -3678,13 +3605,23 @@
     }
 
     // Wallet Connection
-    /* ---------- Session restore ----------
-       Which login the user last used is remembered, because both restore paths race on load:
-       checkWalletConnection() auto-connects any already-authorized MetaMask account and sets
-       userAddress, which makes tryRestorePrivySession() bail out of its `if (userAddress)`
-       guards. A user who signed in with email but also happens to have MetaMask installed
-       would therefore come back to wallet mode instead of their email session. Restoring the
-       remembered mode first, and only falling back to the other, keeps the header truthful. */
+    /* ---------- EIP-6963 multi-wallet discovery ----------
+       Modern wallet extensions (MetaMask, Rabby, OKX, etc.) all announce themselves on
+       window via this event instead of fighting over window.ethereum. We collect every
+       announcement and, if more than one shows up, let the user pick. If none announce
+       (older extension, or a wallet that only sets window.ethereum), we fall back to that. */
+    const discoveredProviders = new Map(); // uuid -> { info, provider }
+
+    window.addEventListener('eip6963:announceProvider', (event) => {
+      const { info, provider } = event.detail;
+      discoveredProviders.set(info.uuid, { info, provider });
+    });
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+    function getInjectedProviders() {
+      return Array.from(discoveredProviders.values());
+    }
+
     const AUTH_MODE_KEY = 'nodepool.authMode';
     let isRestoringSession = false;
 
@@ -3703,18 +3640,7 @@
         renderWalletControls();
       }
 
-      const preferPrivy = lastAuthMode() === 'privy';
-      const privyReady = ensurePrivyReady().catch(() => {}); 
-
-      if (preferPrivy) {
-        try { await privyReady; await tryRestorePrivySession(); } catch { /* fall through */ }
-        if (!userAddress) await checkWalletConnection().catch(() => {});
-      } else {
-        await checkWalletConnection().catch(() => {});
-        if (!userAddress) {
-          privyReady.then(() => tryRestorePrivySession()).catch(() => {});
-        }
-      }
+      await checkWalletConnection().catch(() => {});
 
       if (isRestoringSession) {
         isRestoringSession = false;
@@ -3722,23 +3648,26 @@
       }
     }
 
+    // Auto-reconnects a previously-authorized wallet on reload. EIP-6963 providers don't
+    // expose which one was used last, so this only covers the window.ethereum case — the
+    // common one, since most injected wallets set it even when they also announce via 6963.
     async function checkWalletConnection() {
       if (typeof window.ethereum !== 'undefined') {
         if (lastAuthMode() !== 'metamask') return;
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
-          await connectWallet();
+          await connectWithProvider(window.ethereum, 'Wallet');
         }
       }
     }
 
     // Make sure the wallet is on Base Sepolia — the contract only lives there
-    async function ensureBaseSepolia() {
-      const current = await window.ethereum.request({ method: 'eth_chainId' });
+    async function ensureBaseSepolia(rawProv) {
+      const current = await rawProv.request({ method: 'eth_chainId' });
       if (current === CHAIN_ID_HEX) return true;
 
       try {
-        await window.ethereum.request({
+        await rawProv.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: CHAIN_ID_HEX }],
         });
@@ -3746,7 +3675,7 @@
       } catch (err) {
         // 4902 = chain not known to the wallet yet, so add it
         if (err.code === 4902) {
-          await window.ethereum.request({
+          await rawProv.request({
             method: 'wallet_addEthereumChain',
             params: [CHAIN_PARAMS],
           });
@@ -3757,22 +3686,54 @@
       }
     }
 
+    // Entry point for the "Connect Wallet" button. Shows a picker when multiple injected
+    // wallets are present, connects directly when there's exactly one (or only window.ethereum).
     async function connectWallet() {
-      if (typeof window.ethereum === 'undefined') {
-        showToast('Please install MetaMask!', 'error');
+      const providers = getInjectedProviders();
+      if (providers.length === 0) {
+        if (typeof window.ethereum === 'undefined') {
+          showToast('No wallet found — install MetaMask, Rabby, or another browser wallet', 'error');
+          return;
+        }
+        await connectWithProvider(window.ethereum, 'Wallet');
         return;
       }
+      if (providers.length === 1) {
+        await connectWithProvider(providers[0].provider, providers[0].info.name);
+        return;
+      }
+      showWalletPicker(providers);
+    }
 
+    function showWalletPicker(providers) {
+      const list = document.getElementById('walletPickerList');
+      list.innerHTML = providers.map(({ info }) => `
+        <button class="wallet-btn" style="width:100%;justify-content:flex-start;gap:0.6rem;margin-bottom:0.5rem"
+                onclick="selectInjectedWallet('${info.uuid}')">
+          <img src="${info.icon}" alt="" width="20" height="20" style="border-radius:4px">
+          ${info.name}
+        </button>
+      `).join('');
+      document.getElementById('walletPickerModal').classList.add('active');
+    }
+
+    async function selectInjectedWallet(uuid) {
+      const entry = discoveredProviders.get(uuid);
+      closeModal('walletPickerModal');
+      if (!entry) return;
+      await connectWithProvider(entry.provider, entry.info.name);
+    }
+
+    async function connectWithProvider(rawProv, walletName) {
       try {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        if (!(await ensureBaseSepolia())) return;
+        await rawProv.request({ method: 'eth_requestAccounts' });
+        if (!(await ensureBaseSepolia(rawProv))) return;
 
-        provider = new ethers.BrowserProvider(window.ethereum);
+        provider = new ethers.BrowserProvider(rawProv);
         signer = await provider.getSigner();
-        rawProvider = window.ethereum;
+        rawProvider = rawProv;
         userAddress = await signer.getAddress();
         authMode = 'metamask';
-        privyEmail = null;
         rememberAuthMode('metamask');
 
         renderWalletControls();
@@ -3786,20 +3747,22 @@
         }
 
         // Listen for account changes
-        window.ethereum.on('accountsChanged', (accounts) => {
-          if (accounts.length === 0) {
-            location.reload();
-          } else {
-            connectWallet();
-          }
-        });
+        if (rawProv.on) {
+          rawProv.on('accountsChanged', (accounts) => {
+            if (accounts.length === 0) {
+              location.reload();
+            } else {
+              connectWithProvider(rawProv, walletName);
+            }
+          });
 
-        // A network switch invalidates the provider/contract — start clean
-        window.ethereum.on('chainChanged', () => location.reload());
+          // A network switch invalidates the provider/contract — start clean
+          rawProv.on('chainChanged', () => location.reload());
+        }
 
       } catch (err) {
         console.error(err);
-        showToast('Failed to connect wallet', 'error');
+        showToast(`Failed to connect ${walletName}`, 'error');
       }
     }
 
@@ -3922,7 +3885,6 @@
       const amount = document.getElementById('wmSendAmount').value.trim();
       if (!to || !amount) { showToast('Enter address and amount', 'error'); return; }
       if (!rawProvider) { showToast('Wallet not ready - reconnect and try again', 'error'); return; }
-      if (!window.Viem) { showToast('Wallet libraries still loading - try again in a second', 'error'); return; }
       try {
         showToast('Sending...', 'warning');
         // A plain ETH transfer always costs exactly 21000 gas — pass gasLimit explicitly so
@@ -3955,7 +3917,6 @@
         }
         el.innerHTML = `
           <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
-          <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
         `;
         return;
       }
