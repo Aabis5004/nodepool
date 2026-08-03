@@ -3934,24 +3934,28 @@
         const fee = await read.getFeeData();
         const nonce = await read.getTransactionCount(userAddress, 'pending');
 
-        const walletClient = createWalletClient({
-          account: userAddress,
-          chain: baseSepolia,
-          transport: custom(rawProvider),
+        // Send straight through Privy's EIP-1193 provider in the plain transaction shape
+        // it accepts. viem's walletClient wrapped the tx in a {calls,type} shape Privy's
+        // embedded-wallet RPC rejected ("Unrecognized key(s): to, value"). We still hand it
+        // the fully-populated tx we built above so nothing gets re-estimated to 0.
+        const toHex = (v) => '0x' + BigInt(v).toString(16);
+        const txParams = {
+          from: userAddress,
+          to,
+          value: toHex(parseEther(amount)),
+          gas: toHex(gasLimit),
+          nonce: toHex(nonce),
+          type: '0x2',
+        };
+        if (fee.maxFeePerGas != null) txParams.maxFeePerGas = toHex(fee.maxFeePerGas);
+        if (fee.maxPriorityFeePerGas != null) txParams.maxPriorityFeePerGas = toHex(fee.maxPriorityFeePerGas);
+
+        const txHash = await rawProvider.request({
+          method: 'eth_sendTransaction',
+          params: [txParams],
         });
 
-        const request = await walletClient.prepareTransactionRequest({
-          to,
-          value: parseEther(amount),
-          gas: 21000n,
-          maxFeePerGas: fee.maxFeePerGas ?? undefined,
-          maxPriorityFeePerGas: fee.maxPriorityFeePerGas ?? undefined,
-          nonce,
-        });
-        showToast('Confirm in your wallet...', 'warning');
-        const signedTx = await walletClient.signTransaction(request);
         showToast('Confirming transaction...', 'warning');
-        const txHash = await read.send('eth_sendRawTransaction', [signedTx]);
         await read.waitForTransaction(txHash);
         showToast(`Sent ${amount} ETH`, 'success');
         showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash });
