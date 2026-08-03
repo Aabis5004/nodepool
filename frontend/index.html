@@ -2580,8 +2580,8 @@
       <a href="#app">Marketplace</a>
     </nav>
     <div class="wallet-controls" id="walletControls">
-      <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+      <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
     </div>
   </header>
 
@@ -3236,6 +3236,7 @@
     // Deployed to Base Sepolia (chainId 84532)
     const CONTRACT_ADDRESS = '0xc8D26E0aEbB17B6c68F9EBb8483Ac5298537F3A8';
     const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
+    const CHAIN_ID = 84532;
     const CHAIN_ID_HEX = '0x14a34'; // 84532
     const RPC_URL = 'https://base-sepolia-rpc.publicnode.com'; // sepolia.base.org (the public Base RPC) was too flaky — "too many errors"
     const EXPLORER_URL = 'https://sepolia.basescan.org';
@@ -3924,22 +3925,10 @@
       if (!window.Viem) { showToast('Wallet libraries still loading - try again in a second', 'error'); return; }
       try {
         showToast('Sending...', 'warning');
-        // Trick Privy's backend into respecting the gas limit.
-        // Privy's RPC strips the gas parameter for plain ETH transfers (empty data)
-        // on Base Sepolia, resulting in gasLimit = 0. By adding 1 byte of dummy data,
-        // we force Privy to treat it like a contract call and respect the gas limit!
-        const txObj = { 
-            to, 
-            value: ethers.parseEther(amount),
-            data: "0x00" // 1 byte of dummy data (costs 4 gas)
-        };
-        const estimatedGas = await signer.estimateGas(txObj);
-        
-        // Pad gas by 20% to bypass Privy's auto-estimation bugs on Base Sepolia
-        const tx = await signer.sendTransaction({
-          ...txObj,
-          gasLimit: (estimatedGas * 120n) / 100n
-        });
+        // A plain ETH transfer always costs exactly 21000 gas — pass gasLimit explicitly so
+        // ethers never calls provider.estimateGas() for it. That RPC estimate path is only
+        // reliable for real contract calls; on a zero-data transfer it can spuriously revert.
+        const tx = await signer.sendTransaction({ to, value: ethers.parseEther(amount), gasLimit: 21000n });
 
         showToast('Confirming transaction...', 'warning');
         const receipt = await tx.wait();
@@ -3965,8 +3954,8 @@
           return;
         }
         el.innerHTML = `
-          <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
           <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+          <button class="wallet-btn wallet-btn-outline" id="emailSigninBtn" onclick="openEmailModal()">Sign in with Email</button>
         `;
         return;
       }
@@ -4375,6 +4364,85 @@
       }
     }
 
+    // Only these ever need the embedded wallet itself (key material lives in the Privy iframe).
+    // Everything else is a plain chain read and is better served by our own RPC.
+    const PRIVY_WALLET_METHODS = new Set([
+      'eth_accounts', 'eth_requestAccounts', 'eth_chainId',
+      'eth_sign', 'personal_sign', 'eth_signTypedData', 'eth_signTypedData_v4',
+      'eth_signTransaction', 'secp256k1_sign', 'wallet_switchEthereumChain',
+    ]);
+
+    // Wraps Privy's EIP-1193 provider to fix two things:
+    //
+    //  1. eth_sendTransaction is broken for embedded wallets. Privy populates the tx with viem
+    //     (which returns the gas limit under the key `gas`) and then hands it to the signing
+    //     iframe, which reads the gas limit off `gasLimit`. The key never matches, so the wallet
+    //     signs with gasLimit 0 and the chain rejects it with "intrinsic gas too low" — no matter
+    //     what gas value we pass in. We populate the tx ourselves and call eth_signTransaction
+    //     directly (that path forwards our keys through untouched), then broadcast the raw tx.
+    //  2. Reads go to Privy's own RPC (base-sepolia.rpc.privy.systems), whose gas estimation is
+    //     unreliable. Route every non-signing method to RPC_URL instead.
+    function wrapPrivyProvider(inner, address) {
+      const rpc = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID, { staticNetwork: true });
+      const hex = (v) => '0x' + BigInt(v).toString(16);
+
+      async function sendTransaction(tx) {
+        const from = ethers.getAddress(tx.from || address);
+        const to = tx.to ? ethers.getAddress(tx.to) : undefined;
+        const data = tx.data && tx.data !== '0x' ? tx.data : '0x';
+        const value = tx.value ? BigInt(tx.value) : 0n;
+
+        const [chainNonce, fees] = await Promise.all([
+          rpc.getTransactionCount(from, 'pending'),
+          rpc.getFeeData(),
+        ]);
+        const nonce = tx.nonce != null ? BigInt(tx.nonce) : chainNonce;
+        let gasLimit = tx.gas ?? tx.gasLimit;
+        if (gasLimit == null) {
+          try {
+            gasLimit = (await rpc.estimateGas({ from, to, data, value }) * 125n) / 100n;
+          } catch (err) {
+            // A plain transfer only fails to estimate when the balance can't cover it. Fall
+            // through with the intrinsic minimum so the user sees the real "insufficient
+            // funds" error from the chain instead of an opaque estimation failure.
+            if (data !== '0x') throw err;
+            gasLimit = 21000n;
+          }
+        }
+        const maxPriorityFeePerGas = tx.maxPriorityFeePerGas ?? fees.maxPriorityFeePerGas ?? 1000000n;
+        const maxFeePerGas = tx.maxFeePerGas ?? fees.maxFeePerGas ?? (maxPriorityFeePerGas * 2n);
+
+        const unsigned = {
+          from,
+          to,
+          data,
+          value: hex(value),
+          nonce: hex(nonce),
+          chainId: hex(CHAIN_ID),
+          type: 2, // must be the number 2 — the iframe rejects 'eip1559' and '0x2'
+          gasLimit: hex(gasLimit), // `gasLimit`, NOT `gas` — see note above
+          maxFeePerGas: hex(maxFeePerGas),
+          maxPriorityFeePerGas: hex(maxPriorityFeePerGas),
+        };
+
+        const raw = await inner.request({ method: 'eth_signTransaction', params: [unsigned] });
+        return await rpc.send('eth_sendRawTransaction', [raw]);
+      }
+
+      return {
+        isPrivy: true,
+        request: async (args) => {
+          if (args.method === 'eth_sendTransaction') {
+            return sendTransaction((args.params && args.params[0]) || {});
+          }
+          if (PRIVY_WALLET_METHODS.has(args.method)) return inner.request(args);
+          return rpc.send(args.method, args.params || []);
+        },
+        on: (...a) => inner.on && inner.on(...a),
+        removeListener: (...a) => inner.removeListener && inner.removeListener(...a),
+      };
+    }
+
     // Wires up a logged-in Privy user's embedded wallet as the ethers signer, same as connectWallet() does for MetaMask
     async function finishPrivyLogin(client, user, email) {
       const { getUserEmbeddedEthereumWallet, getEntropyDetailsFromAccount } = window.PrivyCore;
@@ -4410,9 +4478,10 @@
       const eip1193Provider = await client.embeddedWallet.getEthereumProvider({ wallet: account, entropyId, entropyIdVerifier });
       console.log('[Privy] finishPrivyLogin: got EIP-1193 provider, wiring up signer + contract');
 
-      provider = new ethers.BrowserProvider(eip1193Provider);
-      signer = await provider.getSigner();
-      rawProvider = eip1193Provider;
+      const wrapped = wrapPrivyProvider(eip1193Provider, account.address);
+      provider = new ethers.BrowserProvider(wrapped, CHAIN_ID);
+      signer = await provider.getSigner(account.address);
+      rawProvider = wrapped;
       userAddress = account.address;
       authMode = 'privy';
       privyEmail = email || null;
