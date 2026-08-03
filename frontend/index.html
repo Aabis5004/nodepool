@@ -3317,6 +3317,7 @@
     // State
     let provider = null;
     let signer = null;
+    let rawProvider = null;   // raw EIP-1193 provider (window.ethereum or Privy's) for direct sends
     let contract = null;
     let readContract = null;
     let userAddress = null;
@@ -3759,6 +3760,7 @@
 
         provider = new ethers.BrowserProvider(window.ethereum);
         signer = await provider.getSigner();
+        rawProvider = window.ethereum;
         userAddress = await signer.getAddress();
         authMode = 'metamask';
         privyEmail = null;
@@ -3909,29 +3911,29 @@
     async function sendFunds() {
       const to = document.getElementById('wmSendTo').value.trim();
       const amount = document.getElementById('wmSendAmount').value.trim();
-      if (!to || !amount) { showToast('Enter your MetaMask address and amount', 'error'); return; }
+      if (!to || !amount) { showToast('Enter address and amount', 'error'); return; }
+      if (!rawProvider) { showToast('Wallet not ready - reconnect and try again', 'error'); return; }
       try {
-        showToast('Confirm in your wallet...', 'warning');
-        const txObj = { to, value: ethers.parseEther(amount) };
-        const gasLimit = 21000n; // plain ETH transfer is always exactly 21000
-
-        // Bypass Ethers transaction signing and Viem bugs by sending a raw RPC call 
-        // to the provider with explicitly formatted hex properties. 
-        const tx = await signer.sendTransaction({
-          to: to,
-          value: ethers.parseEther(amount),
-          gasLimit: gasLimit
+        showToast('Sending...', 'warning');
+        // Send through the wallet's own EIP-1193 provider, not ethers' signer. Ethers v6
+        // pre-fills nonce/fees and Privy's embedded-wallet provider rejects that shape;
+        // letting the wallet build the tx (with fixed 21000 gas for a plain transfer) fixes it.
+        const valueHex = '0x' + ethers.parseEther(amount).toString(16);
+        const txHash = await rawProvider.request({
+          method: 'eth_sendTransaction',
+          params: [{ from: userAddress, to: to, value: valueHex, gas: '0x5208' }]
         });
         showToast('Confirming transaction...', 'warning');
-        await tx.wait();
-        const txHash = tx.hash;
-        
+        await provider.waitForTransaction(txHash);
         showToast(`Sent ${amount} ETH`, 'success');
         showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash: txHash });
         document.getElementById('wmSendTo').value = '';
         document.getElementById('wmSendAmount').value = '';
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
-      } catch (e) { showToast(e.reason || e.message || 'Send failed', 'error'); }
+      } catch (e) {
+        console.error('Send failed:', e);
+        showToast(e.reason || e.message || 'Send failed', 'error');
+      }
     }
     function renderWalletControls() {
       const el = document.getElementById('walletControls');
@@ -4152,7 +4154,18 @@
 
     // In js-sdk-core, client.initialize() automatically checks storage and sets authenticated state.
     async function getPrivyUserWithRetry(client) {
-      if (!client.authenticated) {
+      // The access token is short-lived and expires between sessions. On a page reload the
+      // stored session reads as "not authenticated" until we refresh it, so force a refresh
+      // from the persisted refresh token BEFORE giving up - this is what makes an email
+      // session survive a reload instead of silently logging out.
+      let token = null;
+      try {
+        token = await client.getAccessToken();
+      } catch (err) {
+        console.log('[Privy] getAccessToken during restore failed:', err && err.message);
+      }
+
+      if (!token && !client.authenticated) {
         throw new Error('Not authenticated');
       }
       
@@ -4368,6 +4381,7 @@
 
       provider = new ethers.BrowserProvider(eip1193Provider);
       signer = await provider.getSigner();
+      rawProvider = eip1193Provider;
       userAddress = account.address;
       authMode = 'privy';
       privyEmail = email || null;
@@ -4428,6 +4442,7 @@
 
       provider = null;
       signer = null;
+      rawProvider = null;
       contract = null;
       userAddress = null;
       authMode = null;
