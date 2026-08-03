@@ -3924,7 +3924,15 @@
       if (!window.Viem) { showToast('Wallet libraries still loading - try again in a second', 'error'); return; }
       try {
         showToast('Sending...', 'warning');
-        const txObj = { to, value: ethers.parseEther(amount) };
+        // Trick Privy's backend into respecting the gas limit.
+        // Privy's RPC strips the gas parameter for plain ETH transfers (empty data)
+        // on Base Sepolia, resulting in gasLimit = 0. By adding 1 byte of dummy data,
+        // we force Privy to treat it like a contract call and respect the gas limit!
+        const txObj = { 
+            to, 
+            value: ethers.parseEther(amount),
+            data: "0x00" // 1 byte of dummy data (costs 4 gas)
+        };
         const estimatedGas = await signer.estimateGas(txObj);
         
         // Pad gas by 20% to bypass Privy's auto-estimation bugs on Base Sepolia
