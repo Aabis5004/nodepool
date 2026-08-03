@@ -4369,9 +4369,22 @@
       await ensureEmbeddedWalletReady(client);
 
       let account = getUserEmbeddedEthereumWallet(user);
+      // A freshly-logged-in user object sometimes arrives WITHOUT its linked embedded wallet,
+      // which used to make us create a brand-new wallet on every login - each with a different
+      // address, stranding funds in the previous one. Re-fetch the full user first, and only
+      // create a wallet if the user genuinely has none.
       if (!account) {
-        console.log('[Privy] finishPrivyLogin: user has no embedded wallet yet, creating one...');
-        // create() resolves to an AuthenticatedUser envelope, not the user itself
+        try {
+          const fresh = await client.user.get();
+          const freshUser = fresh && fresh.user ? fresh.user : fresh;
+          account = getUserEmbeddedEthereumWallet(freshUser);
+          if (account) console.log('[Privy] recovered existing wallet on refetch -', account.address);
+        } catch (e) {
+          console.log('[Privy] user refetch failed -', e && e.message);
+        }
+      }
+      if (!account) {
+        console.log('[Privy] no existing wallet, creating one...');
         const created = await client.embeddedWallet.create({});
         account = getUserEmbeddedEthereumWallet(created.user);
       }
