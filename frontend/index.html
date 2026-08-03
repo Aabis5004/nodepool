@@ -24,9 +24,11 @@
   <!-- Privy JS SDK (embedded wallets) — loaded as an ES module and exposed on window.PrivyCore -->
   <script type="module">
     try {
-      const [core, chains] = await Promise.all([
+      const [core, chains, viem, viemChains] = await Promise.all([
         import('https://esm.sh/@privy-io/js-sdk-core@0.68.5'),
         import('https://esm.sh/@privy-io/chains@0.5.2'),
+        import('https://esm.sh/viem@2.21.0'),
+        import('https://esm.sh/viem@2.21.0/chains'),
       ]);
       window.PrivyCore = {
         Privy: core.default,
@@ -34,6 +36,12 @@
         getUserEmbeddedEthereumWallet: core.getUserEmbeddedEthereumWallet,
         getEntropyDetailsFromAccount: core.getEntropyDetailsFromAccount,
         baseSepolia: chains.baseSepolia,
+      };
+      window.Viem = {
+        createWalletClient: viem.createWalletClient,
+        custom: viem.custom,
+        parseEther: viem.parseEther,
+        baseSepolia: viemChains.baseSepolia,
       };
     } catch (err) {
       // Surface CDN/module failures instead of leaving the page polling forever
@@ -3913,29 +3921,44 @@
       const amount = document.getElementById('wmSendAmount').value.trim();
       if (!to || !amount) { showToast('Enter address and amount', 'error'); return; }
       if (!rawProvider) { showToast('Wallet not ready - reconnect and try again', 'error'); return; }
+      if (!window.Viem) { showToast('Wallet libraries still loading - try again in a second', 'error'); return; }
       try {
         showToast('Sending...', 'warning');
-        // Send through the wallet's own EIP-1193 provider, not ethers' signer. Ethers v6
-        // pre-fills nonce/fees and Privy's embedded-wallet provider rejects that shape;
-        // letting the wallet build the tx (with fixed 21000 gas for a plain transfer) fixes it.
-        const valueHex = '0x' + ethers.parseEther(amount).toString(16);
-        // Let Privy's embedded wallet estimate & fill gas itself. Passing our own gas
-        // field made it sign with gasLimit 0 ("intrinsic gas too low"). Privy's documented
-        // eth_sendTransaction usage is from/to/value only - let the wallet do the rest.
-        const txHash = await rawProvider.request({
-          method: 'eth_sendTransaction',
-          params: [{ from: userAddress, to: to, value: valueHex }]
+        const { createWalletClient, custom, parseEther, baseSepolia } = window.Viem;
+
+        // Read gas/fees/nonce from the RELIABLE public RPC, not Privy's own
+        // (base-sepolia.rpc.privy.systems) whose estimation was signing txs with gasLimit 0
+        // -> intrinsic gas too low. Handing viem a fully-specified transaction leaves the
+        // embedded wallet nothing to mis-estimate: a plain transfer is always 21000 gas.
+        const read = new ethers.JsonRpcProvider(RPC_URL);
+        const fee = await read.getFeeData();
+        const nonce = await read.getTransactionCount(userAddress, 'pending');
+
+        const walletClient = createWalletClient({
+          account: userAddress,
+          chain: baseSepolia,
+          transport: custom(rawProvider),
         });
+
+        const txHash = await walletClient.sendTransaction({
+          to,
+          value: parseEther(amount),
+          gas: 21000n,
+          maxFeePerGas: fee.maxFeePerGas ?? undefined,
+          maxPriorityFeePerGas: fee.maxPriorityFeePerGas ?? undefined,
+          nonce,
+        });
+
         showToast('Confirming transaction...', 'warning');
-        await provider.waitForTransaction(txHash);
+        await read.waitForTransaction(txHash);
         showToast(`Sent ${amount} ETH`, 'success');
-        showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash: txHash });
+        showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash });
         document.getElementById('wmSendTo').value = '';
         document.getElementById('wmSendAmount').value = '';
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
       } catch (e) {
         console.error('Send failed:', e);
-        showToast(e.reason || e.message || 'Send failed', 'error');
+        showToast(e.shortMessage || e.reason || e.message || 'Send failed', 'error');
       }
     }
     function renderWalletControls() {
