@@ -63,7 +63,6 @@ contract NodePool {
     uint256 public machineCount;
     uint256 public rentalCount;
     uint256 public messageCount;
-    address public keeper;  // address authorized to report uptime (simulated oracle)
 
     // A machine is only considered live if its agent heartbeat landed within this window
     uint256 public constant ONLINE_WINDOW = 3 minutes;
@@ -71,6 +70,11 @@ contract NodePool {
     mapping(uint256 => Machine) public machines;
     mapping(uint256 => Rental) public rentals;
     mapping(uint256 => Message) public messages;
+
+    // Per-machine device key authorized to report uptime for THAT machine only (setMachineOnline,
+    // reportUptime). Set by the machine owner, either at listing time or via authorizeReporter().
+    // It can never withdraw, delist, or move funds — those stay gated to the owner.
+    mapping(uint256 => address) public reporterOf;
 
     // Provider earnings ready to withdraw
     mapping(address => uint256) public pendingWithdrawals;
@@ -97,6 +101,7 @@ contract NodePool {
     event MachineUpdated(uint256 indexed machineId);
     event MachineDelisted(uint256 indexed machineId);
     event MachineOnlineStatusChanged(uint256 indexed machineId, bool online, uint256 timestamp);
+    event ReporterAuthorized(uint256 indexed machineId, address indexed reporter);
 
     event RentalRequested(
         uint256 indexed rentalId,
@@ -129,8 +134,22 @@ contract NodePool {
         _;
     }
 
-    modifier onlyKeeper() {
-        require(msg.sender == keeper, "Not authorized keeper");
+    // Machine owner, or the per-machine device key the owner authorized — never a global address
+    modifier onlyAuthorizedReporter(uint256 machineId) {
+        require(
+            msg.sender == machines[machineId].owner || msg.sender == reporterOf[machineId],
+            "Not authorized reporter"
+        );
+        _;
+    }
+
+    // Same check, but for call sites that only have a rentalId (reportUptime)
+    modifier onlyAuthorizedReporterForRental(uint256 rentalId) {
+        uint256 machineId = rentals[rentalId].machineId;
+        require(
+            msg.sender == machines[machineId].owner || msg.sender == reporterOf[machineId],
+            "Not authorized reporter"
+        );
         _;
     }
 
@@ -147,20 +166,22 @@ contract NodePool {
 
     // ============ Constructor ============
 
-    constructor() {
-        keeper = msg.sender;  // deployer is initial keeper
-    }
+    constructor() {}
 
     // ============ Machine Functions ============
 
     /**
-     * @notice List a new machine on the marketplace
+     * @notice List a new machine on the marketplace, optionally authorizing its device key
+     *         (the agent's heartbeat reporter) in the same transaction — one signature covers
+     *         both listing and device authorization.
      * @param cpu CPU specs (e.g., "AMD Ryzen 9 5900X")
      * @param ram RAM amount (e.g., "32GB DDR4")
      * @param storage_ Storage specs (e.g., "1TB NVMe SSD")
      * @param os Operating system (e.g., "Ubuntu 22.04")
      * @param pricePerHour Price per hour in wei
      * @param healthEndpoint URL for health check endpoint
+     * @param reporter Device key to authorize for uptime reporting, or address(0) to skip and
+     *        authorize later via authorizeReporter()
      */
     function listMachine(
         string calldata cpu,
@@ -168,7 +189,8 @@ contract NodePool {
         string calldata storage_,
         string calldata os,
         uint256 pricePerHour,
-        string calldata healthEndpoint
+        string calldata healthEndpoint,
+        address reporter
     ) external returns (uint256) {
         require(pricePerHour > 0, "Price must be greater than 0");
         require(bytes(healthEndpoint).length > 0, "Health endpoint required");
@@ -195,8 +217,28 @@ contract NodePool {
 
         ownerMachines[msg.sender].push(machineId);
 
+        if (reporter != address(0)) {
+            reporterOf[machineId] = reporter;
+            emit ReporterAuthorized(machineId, reporter);
+        }
+
         emit MachineCreated(machineId, msg.sender, cpu, ram, pricePerHour);
         return machineId;
+    }
+
+    /**
+     * @notice Authorize (or re-point) the device key allowed to report uptime for this machine.
+     *         Lets a provider swap in a new agent (e.g. after reinstalling it) without re-listing.
+     *         The reporter can only call setMachineOnline/reportUptime for THIS machine — it can
+     *         never withdraw, delist, or move funds.
+     */
+    function authorizeReporter(uint256 machineId, address reporter)
+        external
+        onlyMachineOwner(machineId)
+        machineExists(machineId)
+    {
+        reporterOf[machineId] = reporter;
+        emit ReporterAuthorized(machineId, reporter);
     }
 
     /**
@@ -240,20 +282,17 @@ contract NodePool {
 
     /**
      * @notice Set a machine's live/online status - called by the agent's heartbeat
-     * @dev Only the machine owner (agent's wallet) or the keeper may call this, so the
-     *      status reflects what the agent actually observed, not a claim anyone can make.
+     * @dev Only the machine owner or that machine's authorized device key (reporterOf) may call
+     *      this, so the status reflects what that machine's agent actually observed, not a claim
+     *      anyone — or any other machine's device key — can make.
      *      Going online refreshes lastSeen; going offline (e.g. on agent shutdown) does not,
      *      so the machine reads as offline immediately rather than waiting out the window.
      */
     function setMachineOnline(uint256 machineId, bool isOnline)
         external
         machineExists(machineId)
+        onlyAuthorizedReporter(machineId)
     {
-        require(
-            msg.sender == machines[machineId].owner || msg.sender == keeper,
-            "Not authorized to set online status"
-        );
-
         machines[machineId].online = isOnline;
         if (isOnline) {
             machines[machineId].lastSeen = block.timestamp;
@@ -365,13 +404,13 @@ contract NodePool {
     }
 
     /**
-     * @notice Report uptime status - called by keeper/oracle
+     * @notice Report uptime status - called by the machine owner or its authorized device key
      * @dev On Rialo mainnet, this becomes a native HTTPS call from the contract
      */
     function reportUptime(uint256 rentalId, bool isOnline)
         external
-        onlyKeeper
         rentalExists(rentalId)
+        onlyAuthorizedReporterForRental(rentalId)
     {
         Rental storage rental = rentals[rentalId];
         require(rental.status == RentalStatus.Active, "Rental not active");
@@ -383,24 +422,36 @@ contract NodePool {
 
         if (hoursSinceLastCheck > 0) {
             if (isOnline) {
-                rental.hoursVerified += hoursSinceLastCheck;
+                // Never verify/pay for more hours than were actually rented. A late heartbeat
+                // (e.g. after a long gap) must not push hoursVerified past totalHours — capping
+                // here is what keeps the uptimeScore division below from ever underflowing.
+                uint256 remainingHours = rental.totalHours > rental.hoursVerified
+                    ? rental.totalHours - rental.hoursVerified
+                    : 0;
+                uint256 verifiedHours = hoursSinceLastCheck > remainingHours ? remainingHours : hoursSinceLastCheck;
 
-                // Pay provider for verified hours
-                uint256 payment = hoursSinceLastCheck * machine.pricePerHour;
-                if (payment <= rental.deposit) {
-                    rental.deposit -= payment;
-                    rental.hoursPaid += hoursSinceLastCheck;
-                    pendingWithdrawals[machine.owner] += payment;
-                    machine.totalEarnings += payment;
+                if (verifiedHours > 0) {
+                    rental.hoursVerified += verifiedHours;
 
-                    emit PaymentReleased(rentalId, machine.owner, payment);
+                    // Pay provider for verified hours
+                    uint256 payment = verifiedHours * machine.pricePerHour;
+                    if (payment <= rental.deposit) {
+                        rental.deposit -= payment;
+                        rental.hoursPaid += verifiedHours;
+                        pendingWithdrawals[machine.owner] += payment;
+                        machine.totalEarnings += payment;
+
+                        emit PaymentReleased(rentalId, machine.owner, payment);
+                    }
                 }
             }
 
-            // Update uptime score (simple rolling average)
-            uint256 totalChecks = rental.hoursVerified + (rental.totalHours - rental.hoursVerified);
-            if (totalChecks > 0) {
-                machine.uptimeScore = (rental.hoursVerified * 10000) / totalChecks;
+            // Update uptime score (simple rolling average). hoursVerified is capped above and
+            // can never exceed totalHours, so this division can't underflow — belt and suspenders
+            // versus the capping: even a future change to hoursVerified elsewhere can't reintroduce
+            // the panic, since there's no `totalHours - hoursVerified` subtraction left here.
+            if (rental.totalHours > 0) {
+                machine.uptimeScore = (rental.hoursVerified * 10000) / rental.totalHours;
             }
         }
 
@@ -651,13 +702,4 @@ contract NodePool {
         }
     }
 
-    // ============ Admin Functions ============
-
-    /**
-     * @notice Update the keeper address (for testnet simulation)
-     */
-    function setKeeper(address newKeeper) external {
-        require(msg.sender == keeper, "Only keeper can transfer");
-        keeper = newKeeper;
-    }
 }

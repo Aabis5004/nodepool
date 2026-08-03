@@ -8,3 +8,4 @@ typechain-types/
 deployments.json
 .hardhat-node.log
 agent/machine-id.json
+agent/device-key.json

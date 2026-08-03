@@ -2850,6 +2850,7 @@
               Show delisted
             </label>
           </div>
+          <button class="btn btn-primary" onclick="openRegisterMachineModal()">+ Register Machine</button>
         </div>
         <div class="machine-grid" id="myMachineGrid">
           <!-- User's machines loaded dynamically -->
@@ -3072,6 +3073,98 @@
     </div>
   </div>
 
+  <!-- Register Machine Modal — the connected wallet signs listMachine() directly -->
+  <div class="modal-overlay" id="registerMachineModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Register Machine</h3>
+        <button class="modal-close" onclick="closeModal('registerMachineModal')">&times;</button>
+      </div>
+      <form id="machineForm" onsubmit="submitRegisterMachine(event)" novalidate>
+        <div class="form-group">
+          <label class="form-label">CPU</label>
+          <input type="text" class="form-input" id="machineCpu" placeholder="e.g., AMD Ryzen 9 5900X" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineCpu"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">RAM</label>
+          <input type="text" class="form-input" id="machineRam" placeholder="e.g., 32GB DDR4" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineRam"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Storage</label>
+          <input type="text" class="form-input" id="machineStorage" placeholder="e.g., 1TB NVMe SSD" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineStorage"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Operating System</label>
+          <input type="text" class="form-input" id="machineOs" placeholder="e.g., Ubuntu 22.04" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineOs"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Price per Hour (ETH)</label>
+          <input type="number" class="form-input" id="machinePrice" step="0.0001" min="0.0001" placeholder="0.005" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machinePrice"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Health Endpoint URL</label>
+          <input type="url" class="form-input" id="machineEndpoint" placeholder="http://your-ip:8080/health" oninput="onMachineFieldInput()">
+          <div class="field-error" id="err-machineEndpoint"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Device Address (optional)</label>
+          <input type="text" class="form-input" id="machineReporter" placeholder="0x... — printed by the agent on first run" oninput="onMachineFieldInput()">
+          <div class="form-hint">Run the NodePool agent first and paste the device address it prints, so this machine can start reporting uptime immediately. Leave blank to authorize a device later from the machine card.</div>
+          <div class="field-error" id="err-machineReporter"></div>
+        </div>
+
+        <div class="preview-wrap">
+          <div class="preview-label">Listing preview</div>
+          <div id="machinePreview"></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;" id="registerMachineBtn">
+          Register Machine
+        </button>
+      </form>
+
+      <div id="machineSuccess" style="display: none;">
+        <div class="success-panel">
+          <div class="success-check">&#10003;</div>
+          <h3 style="font-size: 1.25rem;">Machine registered</h3>
+          <p style="color: var(--text-secondary); margin-top: 0.35rem;">It's live on the marketplace now.</p>
+          <div class="success-id">Machine ID <strong id="newMachineId">#—</strong></div>
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="btn btn-secondary" style="flex: 1;" onclick="resetRegisterMachineForm()">Register Another</button>
+            <button class="btn btn-primary" style="flex: 1;" onclick="closeModal('registerMachineModal'); switchTab('marketplace');">View Marketplace</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Authorize Device Modal — re-point a machine's device key without re-listing -->
+  <div class="modal-overlay" id="authorizeReporterModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Authorize Device</h3>
+        <button class="modal-close" onclick="closeModal('authorizeReporterModal')">&times;</button>
+      </div>
+      <form onsubmit="submitAuthorizeReporter(event)" novalidate>
+        <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9375rem;">
+          Paste the device address printed by the NodePool agent for Machine <strong id="authMachineId">#—</strong>.
+          It can only report uptime for this machine — it can never withdraw funds, delist, or change price.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Device Address</label>
+          <input type="text" class="form-input" id="authReporterAddress" placeholder="0x...">
+          <div class="field-error" id="err-authReporterAddress"></div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;" id="authorizeReporterBtn">Authorize</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Confirmation dialog — used for every irreversible / on-chain action -->
   <div class="modal-overlay" id="confirmModal">
     <div class="modal confirm-modal">
@@ -3093,7 +3186,7 @@
   <script>
     // Contract configuration - UPDATE THIS AFTER DEPLOYMENT
     // Deployed to Base Sepolia (chainId 84532)
-    const CONTRACT_ADDRESS = '0xc8D26E0aEbB17B6c68F9EBb8483Ac5298537F3A8';
+    const CONTRACT_ADDRESS = '0x897eDCEA8a08693358aC9b6cB9258c5378c09365';
     const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
     const CHAIN_ID = 84532;
     const CHAIN_ID_HEX = '0x14a34'; // 84532
@@ -3122,9 +3215,11 @@
       "function getMessages(uint256) view returns (uint256[])",
       "function messages(uint256) view returns (uint256 rentalId, address sender, string text, uint256 timestamp)",
       "function getProviderStats(address) view returns (uint256 totalMachines, uint256 totalEarnings, uint256 avgUptimeScore)",
-      "function listMachine(string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint) returns (uint256)",
+      "function listMachine(string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, address reporter) returns (uint256)",
       "function updateMachine(uint256 machineId, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable)",
       "function delistMachine(uint256 machineId)",
+      "function authorizeReporter(uint256 machineId, address reporter)",
+      "function reporterOf(uint256) view returns (address)",
       "function requestRental(uint256 machineId, uint256 rentalHours, string message) payable returns (uint256)",
       "function acceptRental(uint256 rentalId)",
       "function declineRental(uint256 rentalId)",
@@ -4551,12 +4646,14 @@
           ? emptyState({
               art: 'server',
               title: 'No machines listed yet',
-              body: 'The network is empty right now. Machines are listed by running the NodePool provider agent — see the agent/ folder.',
+              body: 'The network is empty right now. List your own idle machine and start earning for every verified hour.',
+              action: '<button class="btn btn-primary" onclick="goToApp(\'my-machines\'); openRegisterMachineModal();">Register Your Machine</button>',
             })
           : emptyState({
               art: 'server',
-              title: "You haven't listed a machine",
-              body: 'Machines are listed by running the NodePool provider agent on your computer. See the agent/ folder.',
+              title: "You haven't registered a machine",
+              body: 'Register your machine with your wallet, then run the NodePool provider agent (see agent/) and authorize its device address so it can report uptime.',
+              action: '<button class="btn btn-primary" onclick="openRegisterMachineModal()">Register Machine</button>',
             });
         return;
       }
@@ -4609,7 +4706,10 @@
                 ? `<button class="btn btn-secondary" onclick="event.stopPropagation(); openRentalDetail(${activeRental.id})">View Rental</button>`
                 : delisted
                   ? `<button class="btn btn-secondary" disabled>Delisted</button>`
-                  : `<button class="btn btn-danger" onclick="event.stopPropagation(); delistMachine(${m.id}, this)">Delist</button>`}
+                  : `<div style="display:flex;gap:0.5rem">
+                       <button class="btn btn-secondary" onclick="event.stopPropagation(); openAuthorizeReporterModal(${m.id})">Authorize Device</button>
+                       <button class="btn btn-danger" onclick="event.stopPropagation(); delistMachine(${m.id}, this)">Delist</button>
+                     </div>`}
           </div>
         </div>
       `;
@@ -4773,7 +4873,8 @@
           grid.innerHTML = emptyState({
             art: 'server',
             title: 'All your machines are delisted',
-            body: 'Check "Show delisted" above to see them. New machines are listed by running the NodePool provider agent — see the agent/ folder.',
+            body: 'Check "Show delisted" above to see them, or register a new one.',
+            action: '<button class="btn btn-primary" onclick="openRegisterMachineModal()">Register a New Machine</button>',
           });
         } else {
           renderMachines(visibleMachines, grid, false);
@@ -4786,6 +4887,247 @@
           body: 'The RPC call failed. Try again in a moment.',
           action: '<button class="btn btn-secondary" onclick="loadMyMachines()">Retry</button>',
         });
+      }
+    }
+
+    /* ---------- Register machine: validation + live preview + success state ---------- */
+
+    // Each rule returns an error string, or null when the value is acceptable
+    const MACHINE_FIELDS = {
+      machineCpu: v => !v.trim() ? 'CPU is required'
+        : v.trim().length < 3 ? 'Give a recognisable CPU model (min 3 characters)' : null,
+      machineRam: v => !v.trim() ? 'RAM is required'
+        : !/\d/.test(v) ? 'Include the amount, e.g. "32GB DDR4"' : null,
+      machineStorage: v => !v.trim() ? 'Storage is required'
+        : !/\d/.test(v) ? 'Include the size, e.g. "1TB NVMe SSD"' : null,
+      machineOs: v => !v.trim() ? 'Operating system is required'
+        : v.trim().length < 3 ? 'Give the OS and version, e.g. "Ubuntu 22.04"' : null,
+      machinePrice: v => {
+        if (!v.trim()) return 'Price is required';
+        const n = Number(v);
+        if (!Number.isFinite(n) || n <= 0) return 'Enter a price greater than 0';
+        if (n < 0.0001) return 'Minimum price is 0.0001 ETH/hr';
+        if (n > 10) return 'That looks too high — max 10 ETH/hr';
+        return null;
+      },
+      machineEndpoint: v => {
+        if (!v.trim()) return 'Health endpoint is required';
+        let url;
+        try { url = new URL(v.trim()); } catch { return 'Enter a full URL, e.g. http://1.2.3.4:8080/health'; }
+        if (!/^https?:$/.test(url.protocol)) return 'Endpoint must use http:// or https://';
+        return null;
+      },
+      machineReporter: v => {
+        if (!v.trim()) return null; // optional — can authorize a device later
+        try { ethers.getAddress(v.trim()); return null; }
+        catch { return 'Not a valid address'; }
+      },
+    };
+
+    function machineFieldValue(id) {
+      return document.getElementById(id).value;
+    }
+
+    // Validates one field and paints its error. `silent` skips painting (used for live preview).
+    function validateMachineField(id, silent = false) {
+      const error = MACHINE_FIELDS[id](machineFieldValue(id));
+      if (!silent) {
+        const input = document.getElementById(id);
+        const errEl = document.getElementById(`err-${id}`);
+        input.classList.toggle('invalid', !!error);
+        errEl.textContent = error || '';
+        errEl.classList.toggle('show', !!error);
+      }
+      return !error;
+    }
+
+    function validateMachineForm(silent = false) {
+      // Validate every field so all problems surface at once, not one per submit
+      return Object.keys(MACHINE_FIELDS)
+        .map(id => validateMachineField(id, silent))
+        .every(Boolean);
+    }
+
+    function onMachineFieldInput() {
+      // Only re-paint errors for fields already marked invalid, so typing isn't nagged at
+      Object.keys(MACHINE_FIELDS).forEach(id => {
+        if (document.getElementById(id).classList.contains('invalid')) validateMachineField(id);
+      });
+      renderMachinePreview();
+    }
+
+    // Shows the exact card the marketplace will render, using whatever is typed so far
+    function renderMachinePreview() {
+      const price = Number(machineFieldValue('machinePrice'));
+      const preview = {
+        id: 'preview',
+        cpu: machineFieldValue('machineCpu').trim() || 'Your CPU',
+        ram: machineFieldValue('machineRam').trim() || 'Your RAM',
+        storage_: machineFieldValue('machineStorage').trim() || 'Your storage',
+        os: machineFieldValue('machineOs').trim() || 'OS',
+        pricePerHour: Number.isFinite(price) && price > 0 ? ethers.parseEther(String(price)) : 0n,
+        uptimeScore: 10000n,
+        isAvailable: true,
+      };
+
+      document.getElementById('machinePreview').innerHTML = `
+        <div class="card machine-card" style="cursor: default;">
+          <span class="status-pill"><span class="status-dot online"></span>Online</span>
+          <span class="os-badge">${esc(preview.os)}</span>
+          <div class="machine-specs">
+            <div class="spec-row"><span class="spec-label">CPU</span><span class="spec-value">${esc(preview.cpu)}</span></div>
+            <div class="spec-row"><span class="spec-label">RAM</span><span class="spec-value">${esc(preview.ram)}</span></div>
+            <div class="spec-row"><span class="spec-label">Storage</span><span class="spec-value">${esc(preview.storage_)}</span></div>
+          </div>
+          <div class="machine-footer">
+            <div>
+              <div class="price">${ethers.formatEther(preview.pricePerHour)} <span>ETH/hr</span></div>
+              <div class="uptime-badge">100.0% uptime</div>
+            </div>
+            <button class="btn btn-primary" disabled>Rent</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function resetRegisterMachineForm() {
+      const form = document.getElementById('machineForm');
+      form.reset();
+      Object.keys(MACHINE_FIELDS).forEach(id => {
+        document.getElementById(id).classList.remove('invalid');
+        document.getElementById(`err-${id}`).classList.remove('show');
+      });
+      form.style.display = '';
+      document.getElementById('machineSuccess').style.display = 'none';
+      renderMachinePreview();
+    }
+
+    function openRegisterMachineModal() {
+      if (!userAddress) {
+        showToast('Please connect your wallet first', 'warning');
+        return;
+      }
+      resetRegisterMachineForm();
+      document.getElementById('registerMachineModal').classList.add('active');
+    }
+
+    async function submitRegisterMachine(event) {
+      event.preventDefault();
+      if (!contract) {
+        showToast('Please connect your wallet first', 'warning');
+        return;
+      }
+
+      if (!validateMachineForm()) {
+        showToast('Please fix the highlighted fields', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('registerMachineBtn');
+      const cpu = machineFieldValue('machineCpu').trim();
+      const ram = machineFieldValue('machineRam').trim();
+      const storage = machineFieldValue('machineStorage').trim();
+      const os = machineFieldValue('machineOs').trim();
+      const price = ethers.parseEther(machineFieldValue('machinePrice').trim());
+      const endpoint = machineFieldValue('machineEndpoint').trim();
+      const reporterInput = machineFieldValue('machineReporter').trim();
+      const reporter = reporterInput ? ethers.getAddress(reporterInput) : ZERO_ADDRESS;
+
+      try {
+        btn.disabled = true;
+        btn.textContent = 'Registering…';
+        showToast('Confirm the registration in your wallet...', 'warning');
+
+        // One signature covers both listing and device authorization — reporter is address(0)
+        // when left blank, meaning "authorize a device later from the machine card".
+        const tx = await txWithGas(contract.listMachine, cpu, ram, storage, os, price, endpoint, reporter);
+        showToast('Confirming transaction...', 'warning');
+        const receipt = await tx.wait();
+
+        // Pull the new machine ID straight out of the MachineCreated event
+        let machineId = null;
+        for (const log of receipt.logs) {
+          try {
+            const parsed = contract.interface.parseLog(log);
+            if (parsed && parsed.name === 'MachineCreated') {
+              machineId = parsed.args.machineId.toString();
+              break;
+            }
+          } catch { /* log from another contract — ignore */ }
+        }
+        if (machineId === null) machineId = (await contract.machineCount()).toString();
+
+        document.getElementById('newMachineId').textContent = `#${machineId}`;
+        document.getElementById('machineForm').style.display = 'none';
+        document.getElementById('machineSuccess').style.display = 'block';
+        showToast(`Machine registered! (#${machineId})`, 'success');
+        showTxSuccess({
+          title: 'Machine Registered',
+          detail: `Machine #${machineId} · ${machineFieldValue('machinePrice').trim()} ETH/hr`,
+          txHash: tx.hash,
+        });
+
+        // Auto-refresh every view that shows machines - retried at 3s/6s in case the RPC
+        // node hasn't caught up with the confirmed tx yet
+        await refreshAfterTx([loadMyMachines, loadMarketplace, loadDashboard, loadLandingStats, refreshBalance]);
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to register machine', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Register Machine';
+      }
+    }
+
+    /* ---------- Authorize device: re-point a machine's reporter without re-listing ---------- */
+
+    let authorizeReporterMachineId = null;
+
+    function openAuthorizeReporterModal(machineId) {
+      authorizeReporterMachineId = machineId;
+      document.getElementById('authMachineId').textContent = `#${machineId}`;
+      const input = document.getElementById('authReporterAddress');
+      input.value = '';
+      input.classList.remove('invalid');
+      document.getElementById('err-authReporterAddress').classList.remove('show');
+      document.getElementById('authorizeReporterModal').classList.add('active');
+    }
+
+    async function submitAuthorizeReporter(event) {
+      event.preventDefault();
+      const input = document.getElementById('authReporterAddress');
+      const errEl = document.getElementById('err-authReporterAddress');
+      let reporter;
+      try {
+        reporter = ethers.getAddress(input.value.trim());
+      } catch {
+        input.classList.add('invalid');
+        errEl.textContent = 'Not a valid address';
+        errEl.classList.add('show');
+        return;
+      }
+
+      const btn = document.getElementById('authorizeReporterBtn');
+      try {
+        btn.disabled = true;
+        btn.textContent = 'Authorizing…';
+        showToast('Confirm the authorization in your wallet...', 'warning');
+        const tx = await txWithGas(contract.authorizeReporter, authorizeReporterMachineId, reporter);
+        showToast('Confirming transaction...', 'warning');
+        await tx.wait();
+        showToast('Device authorized', 'success');
+        showTxSuccess({
+          title: 'Device Authorized',
+          detail: `Machine #${authorizeReporterMachineId} · ${shortAddr(reporter)}`,
+          txHash: tx.hash,
+        });
+        closeModal('authorizeReporterModal');
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to authorize device', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Authorize';
       }
     }
 

@@ -1,70 +1,64 @@
 // NodePool provider agent.
-// Stage 1: auto-list this machine with its real specs.
-// Stage 2: report uptime for its active rentals on a heartbeat, reusing the same listing
-//          across restarts instead of creating a duplicate machine every run.
+//
+// Listing now happens in the browser (the provider's real wallet signs listMachine()
+// directly) — this agent never touches that wallet and never sees a private key for it.
+// All this agent holds is its own randomly-generated "device key" (agent/device-key.json,
+// gitignored), which the provider must explicitly authorize on-chain (authorizeReporter, or
+// the optional reporter field on listMachine) before it can do anything. That authorization
+// only ever lets the device key call setMachineOnline/reportUptime for the ONE machine it was
+// authorized for — see NodePool.sol's onlyAuthorizedReporter modifiers. It can never withdraw
+// earnings, delist a machine, or change its price.
 require('dotenv').config();
 
-const os = require('os');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
 const { ethers } = require('ethers');
 
-const PRIVATE_KEY = process.env.PROVIDER_PRIVATE_KEY;
-const PRICE_PER_HOUR = process.env.PRICE_PER_HOUR || '0.001';
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0xc8D26E0aEbB17B6c68F9EBb8483Ac5298537F3A8';
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0x897eDCEA8a08693358aC9b6cB9258c5378c09365';
 const RPC_URL = process.env.RPC_URL || 'https://base-sepolia-rpc.publicnode.com';
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 3939);
 
+const DEVICE_KEY_FILE = path.join(__dirname, 'device-key.json');
 const MACHINE_ID_FILE = path.join(__dirname, 'machine-id.json');
 const REPORT_INTERVAL_MS = 60_000;
+const REGISTRATION_POLL_MS = 10_000;
 const RENTAL_STATUS_ACTIVE = 1; // RentalStatus.Active in NodePool.sol's enum
 
-// Only the pieces of the NodePool ABI this agent actually calls.
+// Only the pieces of the NodePool ABI this agent actually calls. It never calls listMachine —
+// that's a browser-only, wallet-signed action now.
 const CONTRACT_ABI = [
-  'function listMachine(string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint) returns (uint256)',
   'function rentalCount() view returns (uint256)',
   'function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))',
   'function reportUptime(uint256 rentalId, bool isOnline)',
   'function setMachineOnline(uint256 machineId, bool isOnline)',
   'function machineCount() view returns (uint256)',
-  'function getMyMachines(address owner) view returns (uint256[])',
+  'function reporterOf(uint256) view returns (address)',
   'function getMachine(uint256) view returns (tuple(uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt, bool online, uint256 lastSeen))',
-  'event MachineCreated(uint256 indexed machineId, address indexed owner, string cpu, string ram, uint256 pricePerHour)',
 ];
 
-function readCpu() {
-  const cpus = os.cpus();
-  const model = cpus.length ? cpus[0].model.trim() : 'Unknown CPU';
-  return `${model} (${cpus.length} cores)`;
-}
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function readRam() {
-  const gb = os.totalmem() / 1024 ** 3;
-  return `${gb.toFixed(1)}GB`;
-}
-
-function readOs() {
-  return `${os.platform()} ${os.release()}`;
-}
-
-// Total disk space of the root volume, in GB. Falls back to "Unknown" if `df` isn't
-// available (e.g. plain Windows) so a missing disk tool doesn't crash the whole agent.
-function readStorage() {
+// Loads the device key from disk, or generates a fresh random one on first run. This key is
+// powerless until a machine owner authorizes it — see the module comment above.
+function loadOrCreateDeviceKey() {
   try {
-    if (os.platform() === 'win32') {
-      return 'Unknown (run on macOS/Linux for automatic disk detection)';
-    }
-    const lines = execSync('df -k /').toString().trim().split('\n');
-    const cols = lines[1].trim().split(/\s+/);
-    const totalKb = Number(cols[1]);
-    const gb = totalKb / (1024 * 1024);
-    return `${gb.toFixed(0)}GB`;
-  } catch (err) {
-    console.warn('Could not read disk space (df failed), using placeholder:', err.message);
-    return 'Unknown';
+    const data = JSON.parse(fs.readFileSync(DEVICE_KEY_FILE, 'utf8'));
+    if (data && data.privateKey) return new ethers.Wallet(data.privateKey);
+  } catch {
+    // No device key yet — normal on first run.
   }
+
+  const wallet = ethers.Wallet.createRandom();
+  fs.writeFileSync(
+    DEVICE_KEY_FILE,
+    JSON.stringify({ address: wallet.address, privateKey: wallet.privateKey }, null, 2)
+  );
+  console.log(`Generated a new device key: ${wallet.address}`);
+  console.log(`  Saved to ${DEVICE_KEY_FILE} — keep this file, but note it's low-stakes: this key`);
+  console.log('  can ONLY report uptime for machines you explicitly authorize. It can never');
+  console.log('  withdraw funds, delist a machine, or change its price.');
+  return wallet;
 }
 
 // Tiny health server the contract's health checks will eventually poll. Stage 1 only
@@ -107,7 +101,7 @@ function loadMachineId() {
     const data = JSON.parse(fs.readFileSync(MACHINE_ID_FILE, 'utf8'));
     if (data && data.machineId) return String(data.machineId);
   } catch {
-    // No existing listing yet — that's the normal first-run case.
+    // No cached machine yet — normal until the provider authorizes this device.
   }
   return null;
 }
@@ -116,72 +110,24 @@ function saveMachineId(machineId) {
   fs.writeFileSync(MACHINE_ID_FILE, JSON.stringify({ machineId: String(machineId) }, null, 2));
 }
 
-async function listMachine(contract, wallet) {
-  console.log('Reading specs...');
-  const cpu = readCpu();
-  const ram = readRam();
-  const storage = readStorage();
-  const osInfo = readOs();
-  console.log(`  CPU: ${cpu}`);
-  console.log(`  RAM: ${ram}`);
-  console.log(`  Storage: ${storage}`);
-  console.log(`  OS: ${osInfo}`);
-
-  const healthEndpoint = process.env.HEALTH_ENDPOINT || `http://localhost:${HEALTH_PORT}/health`;
-  console.log(`  Health endpoint: ${healthEndpoint} (placeholder — Stage 2 handles reporting, not public exposure yet)`);
-
-  const priceWei = ethers.parseEther(String(PRICE_PER_HOUR));
-
-  console.log(`Listing to contract ${CONTRACT_ADDRESS} as ${wallet.address}...`);
-  const tx = await contract.listMachine(cpu, ram, storage, osInfo, priceWei, healthEndpoint);
-  console.log(`  Tx sent: ${tx.hash}`);
-  const receipt = await tx.wait();
-
-  const created = receipt.logs
-    .map((log) => {
-      try { return contract.interface.parseLog(log); } catch { return null; }
-    })
-    .find((parsed) => parsed && parsed.name === 'MachineCreated');
-
-  if (!created) {
-    throw new Error(`listMachine succeeded but no MachineCreated event was found — check the tx on BaseScan: https://sepolia.basescan.org/tx/${tx.hash}`);
-  }
-
-  const machineId = created.args.machineId.toString();
-  console.log(`Done! Machine ID: ${machineId}`);
-  console.log(`  https://sepolia.basescan.org/tx/${tx.hash}`);
-  return machineId;
-}
-
-// Every machine on the contract currently owned by this wallet, lowest id first.
-// getMyMachines() is the cheap path; fall back to scanning if that call isn't available.
-async function findOwnedMachineIds(contract, owner) {
+async function isAuthorizedForMachine(contract, deviceAddress, machineId) {
   try {
-    const ids = await contract.getMyMachines(owner);
-    const mine = [];
-    for (const id of ids) {
-      const m = await contract.getMachine(id).catch(() => null);
-      if (m && m.owner.toLowerCase() === owner.toLowerCase()) mine.push(Number(id));
-    }
-    return mine.sort((a, b) => a - b);
+    const reporter = await contract.reporterOf(machineId);
+    return reporter.toLowerCase() === deviceAddress.toLowerCase();
   } catch {
-    const count = Number(await contract.machineCount());
-    const mine = [];
-    for (let id = 1; id <= count; id++) {
-      const m = await contract.getMachine(id).catch(() => null);
-      if (m && m.owner.toLowerCase() === owner.toLowerCase()) mine.push(id);
-    }
-    return mine;
+    return false; // machine doesn't exist on this contract
   }
 }
 
-async function ownsMachine(contract, owner, machineId) {
-  try {
-    const m = await contract.getMachine(machineId);
-    return m && m.owner.toLowerCase() === owner.toLowerCase();
-  } catch {
-    return false; // id doesn't exist on this contract
+// Every machine on the contract whose reporterOf currently points at this device key, lowest
+// id first. This is how the agent finds "its" machine without ever listing one itself.
+async function findAuthorizedMachineIds(contract, deviceAddress) {
+  const count = Number(await contract.machineCount());
+  const authorized = [];
+  for (let id = 1; id <= count; id++) {
+    if (await isAuthorizedForMachine(contract, deviceAddress, id)) authorized.push(id);
   }
+  return authorized;
 }
 
 async function findActiveRentalIds(contract, machineId) {
@@ -196,12 +142,11 @@ async function findActiveRentalIds(contract, machineId) {
   return activeIds;
 }
 
-// reportUptime() is gated by NodePool.sol's onlyKeeper modifier — only the contract's
-// designated keeper address may call it (see setKeeper()). A provider's own wallet is
-// usually NOT the keeper, so this will typically revert unless the deployer has
-// explicitly authorized this wallet. That's a real on-chain permission, not a bug here —
-// surface it clearly (once) instead of just crashing or silently failing every cycle.
-let keeperWarningShown = false;
+// reportUptime() is gated by NodePool.sol's onlyAuthorizedReporterForRental modifier — only the
+// machine's owner or its authorized device key may call it for that machine's rentals. If this
+// device key isn't (or is no longer) authorized, it reverts — surface that clearly (once)
+// instead of just crashing or silently failing every cycle.
+let reporterWarningShown = false;
 
 async function reportUptimeForRental(contract, rentalId, isOnline) {
   try {
@@ -210,22 +155,20 @@ async function reportUptimeForRental(contract, rentalId, isOnline) {
     return { ok: true };
   } catch (err) {
     const reason = (err && err.reason) || (err && err.shortMessage) || (err && err.message) || 'unknown error';
-    if (/not authorized keeper/i.test(reason) && !keeperWarningShown) {
-      keeperWarningShown = true;
+    if (/not authorized reporter/i.test(reason) && !reporterWarningShown) {
+      reporterWarningShown = true;
       console.warn(
-        '  Note: reportUptime reverted with "Not authorized keeper". That call is restricted to the ' +
-        "contract's keeper address (NodePool.sol's onlyKeeper modifier) — this agent's wallet isn't " +
-        'authorized to call it unless the keeper has run setKeeper(<this wallet>). The agent will keep ' +
-        'trying every cycle in case that changes.'
+        '  Note: reportUptime reverted with "Not authorized reporter". This device key is no ' +
+        "longer authorized for this machine — the owner may have re-pointed it elsewhere via " +
+        'authorizeReporter(). The agent will keep trying every cycle in case that changes.'
       );
     }
     return { ok: false, reason };
   }
 }
 
-// setMachineOnline() only requires the machine owner or keeper - the agent's own wallet is
-// always the owner (it listed the machine), so unlike reportUptime this should never revert
-// on authorization grounds.
+// setMachineOnline() is gated the same way as reportUptime — owner or this machine's
+// reporterOf. Same failure mode as above if the authorization was revoked or re-pointed.
 async function setMachineOnlineStatus(contract, machineId, isOnline) {
   try {
     const tx = await contract.setMachineOnline(machineId, isOnline);
@@ -239,6 +182,29 @@ async function setMachineOnlineStatus(contract, machineId, isOnline) {
 
 function timestamp() {
   return new Date().toLocaleTimeString();
+}
+
+// Blocks until some machine authorizes this device key, printing instructions periodically
+// (not every poll — that would spam the log) rather than exiting and making the provider
+// re-run the agent after authorizing.
+async function waitForAuthorization(contract, deviceAddress) {
+  let attempts = 0;
+  while (true) {
+    const authorized = await findAuthorizedMachineIds(contract, deviceAddress);
+    if (authorized.length > 0) return authorized;
+
+    if (attempts % 6 === 0) {
+      console.log('');
+      console.log('This device is not authorized to report for any machine yet.');
+      console.log('Open the website, connect your wallet, and either:');
+      console.log('  - Register Machine, pasting this device address, or');
+      console.log('  - Authorize Device on an existing machine you own,');
+      console.log(`  with this address: ${deviceAddress}`);
+      console.log(`Checking again every ${REGISTRATION_POLL_MS / 1000}s...`);
+    }
+    attempts++;
+    await sleep(REGISTRATION_POLL_MS);
+  }
 }
 
 async function runUptimeLoop(contract, machineId) {
@@ -311,49 +277,45 @@ async function runUptimeLoop(contract, machineId) {
 }
 
 async function main() {
-  if (!PRIVATE_KEY) {
-    console.error('Missing PROVIDER_PRIVATE_KEY. Copy agent/.env.example to agent/.env and fill it in.');
-    process.exit(1);
-  }
-
+  const deviceWallet = loadOrCreateDeviceKey();
   const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+  const signer = deviceWallet.connect(provider);
   // NonceManager tracks the next nonce locally instead of re-querying the RPC for every send -
-  // without it, sending listMachine and the startup heartbeat back-to-back can race the
-  // provider's pending-nonce lookup and get "nonce too low" on the second transaction.
-  const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, new ethers.NonceManager(wallet));
+  // without it, back-to-back sends (e.g. the startup heartbeat and a reportUptime call) can
+  // race the provider's pending-nonce lookup and get "nonce too low" on the second transaction.
+  const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, new ethers.NonceManager(signer));
+
+  console.log(`Device address: ${deviceWallet.address}`);
 
   startHealthServer(HEALTH_PORT);
   console.log('Health server is running — keep this process alive so uptime checks can reach it.');
 
   let machineId = loadMachineId();
 
-  // Verify the cached id still belongs to us. It won't after a contract redeploy (ids restart
-  // from 1 on the new address) or if machine-id.json was hand-edited, and blindly trusting it
-  // means heartbeating someone else's listing while ours stays dark.
-  if (machineId && !(await ownsMachine(contract, wallet.address, machineId))) {
-    console.log(`machine-id.json points at Machine ${machineId}, but ${wallet.address} does not own it on ${CONTRACT_ADDRESS} — ignoring it.`);
+  // Verify the cached id is still authorized for this device key. It won't be after a contract
+  // redeploy, if machine-id.json was hand-edited, or if the owner re-pointed reporterOf
+  // elsewhere — blindly trusting it means heartbeating a machine that will just reject us.
+  if (machineId && !(await isAuthorizedForMachine(contract, deviceWallet.address, machineId))) {
+    console.log(`machine-id.json points at Machine ${machineId}, but this device is not authorized for it on ${CONTRACT_ADDRESS} — ignoring it.`);
     machineId = null;
   }
 
-  // Self-heal: adopt an existing listing owned by this wallet rather than creating a duplicate
-  // every time machine-id.json goes missing (that's how the earlier duplicate machines appeared).
   if (!machineId) {
-    const owned = await findOwnedMachineIds(contract, wallet.address);
-    if (owned.length > 0) {
-      machineId = owned[0]; // lowest id = the original listing
-      console.log(`Adopting existing listing — owned machines: [${owned.join(', ')}], using Machine ${machineId}.`);
-      if (owned.length > 1) {
-        console.log(`  Note: ${owned.length} listings owned by this wallet. Delist the extras in the UI to keep the marketplace clean.`);
+    const authorized = await findAuthorizedMachineIds(contract, deviceWallet.address);
+    if (authorized.length > 0) {
+      machineId = authorized[0]; // lowest id
+      console.log(`Found authorization for Machine ${machineId}.`);
+      if (authorized.length > 1) {
+        console.log(`  Note: this device is authorized for ${authorized.length} machines: [${authorized.join(', ')}]. Using the lowest id.`);
       }
       saveMachineId(machineId);
     }
   }
 
-  if (machineId) {
-    console.log(`Using Machine ID ${machineId} — skipping listMachine, going straight to uptime reporting.`);
-  } else {
-    machineId = await listMachine(contract, wallet);
+  if (!machineId) {
+    const authorized = await waitForAuthorization(contract, deviceWallet.address);
+    machineId = authorized[0];
+    console.log(`Authorized for Machine ${machineId}.`);
     saveMachineId(machineId);
   }
 
