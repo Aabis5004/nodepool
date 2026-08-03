@@ -3934,35 +3934,24 @@
         const fee = await read.getFeeData();
         const nonce = await read.getTransactionCount(userAddress, 'pending');
 
-        // 21000 is only right for a plain EOA transfer. If the recipient is a contract
-        // wallet (Privy/Coinbase/Safe smart accounts), receiving ETH runs its code and
-        // needs more - that's the "21000 too low" rejection. Estimate on the reliable
-        // public RPC with headroom; unused gas is refunded so over-estimating is safe.
-        let gasLimit;
-        try {
-          const est = await read.estimateGas({ from: userAddress, to, value: parseEther(amount) });
-          gasLimit = (est * 15n) / 10n;
-        } catch (estErr) {
-          console.log('estimateGas failed, using fallback:', estErr && estErr.message);
-          gasLimit = 100000n;
-        }
-
         const walletClient = createWalletClient({
           account: userAddress,
           chain: baseSepolia,
           transport: custom(rawProvider),
         });
 
-        const txHash = await walletClient.sendTransaction({
+        const request = await walletClient.prepareTransactionRequest({
           to,
           value: parseEther(amount),
-          gas: gasLimit,
+          gas: 21000n,
           maxFeePerGas: fee.maxFeePerGas ?? undefined,
           maxPriorityFeePerGas: fee.maxPriorityFeePerGas ?? undefined,
           nonce,
         });
-
+        showToast('Confirm in your wallet...', 'warning');
+        const signedTx = await walletClient.signTransaction(request);
         showToast('Confirming transaction...', 'warning');
+        const txHash = await read.send('eth_sendRawTransaction', [signedTx]);
         await read.waitForTransaction(txHash);
         showToast(`Sent ${amount} ETH`, 'success');
         showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash });
