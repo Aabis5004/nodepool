@@ -3919,9 +3919,12 @@
         // pre-fills nonce/fees and Privy's embedded-wallet provider rejects that shape;
         // letting the wallet build the tx (with fixed 21000 gas for a plain transfer) fixes it.
         const valueHex = '0x' + ethers.parseEther(amount).toString(16);
+        // Let Privy's embedded wallet estimate & fill gas itself. Passing our own gas
+        // field made it sign with gasLimit 0 ("intrinsic gas too low"). Privy's documented
+        // eth_sendTransaction usage is from/to/value only - let the wallet do the rest.
         const txHash = await rawProvider.request({
           method: 'eth_sendTransaction',
-          params: [{ from: userAddress, to: to, value: valueHex, gas: '0x5208' }]
+          params: [{ from: userAddress, to: to, value: valueHex }]
         });
         showToast('Confirming transaction...', 'warning');
         await provider.waitForTransaction(txHash);
