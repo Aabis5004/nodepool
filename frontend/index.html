@@ -5631,8 +5631,15 @@
         // from startTime using the same elapsed/rate math as reportUptime, capped at endTime.
         // This assumes continuous online time since it can't know about gaps between real
         // reads — it self-corrects every 15s when the real on-chain values come back in.
+        //
+        // Only runs while `live` (the same condition the "Machine offline — payment paused"
+        // banner uses) — payment actually stops accruing on-chain the moment the machine goes
+        // offline, so projecting forward past that point would show numbers that never settle.
+        // When not live, the values already on the page from the render above (paid, deposit,
+        // time remaining) are the true on-chain figures as of the last resync, and are left
+        // exactly as rendered — frozen at reality, not an extrapolated estimate.
         clearInterval(rentalLiveTicker);
-        if (status === 1) {
+        if (live) {
           const tickBaseline = {
             startTime: Number(rental.startTime),
             endTime: Number(rental.endTime),
