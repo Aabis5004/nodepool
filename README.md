@@ -151,3 +151,5 @@ The deployer wallet needs Base Sepolia ETH. After deploying, set the new address
 ## Known limitations
 
 The device wallet's gas is funded manually for now. One rental per machine at a time. ngrok's free tier has usage limits; a paid plan or another tunnel can be swapped in without code changes.
+ENDOFREADME
+echo "README written"; head -5 ~/hackathon/README.md</parameter>
