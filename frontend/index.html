@@ -16,6 +16,10 @@
     base-uri 'self';
   ">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <!-- tweetnacl — X25519/nacl.box, used to derive the renter's SSH-credential encryption keypair
+       from a wallet signature (see deriveEncryptionKeypair()). Same package version the agent
+       uses server-side, so both ends implement identical crypto. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl-fast.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -3186,7 +3190,7 @@
   <script>
     // Contract configuration - UPDATE THIS AFTER DEPLOYMENT
     // Deployed to Base Sepolia (chainId 84532)
-    const CONTRACT_ADDRESS = '0x897eDCEA8a08693358aC9b6cB9258c5378c09365';
+    const CONTRACT_ADDRESS = '0x54436C58A3671B24E9004858a55889C44585E7E5';
     const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
     const CHAIN_ID = 84532;
     const CHAIN_ID_HEX = '0x14a34'; // 84532
@@ -3220,7 +3224,9 @@
       "function delistMachine(uint256 machineId)",
       "function authorizeReporter(uint256 machineId, address reporter)",
       "function reporterOf(uint256) view returns (address)",
-      "function requestRental(uint256 machineId, uint256 rentalHours, string message) payable returns (uint256)",
+      "function requestRental(uint256 machineId, uint256 rentalHours, string message, bytes32 renterPubKey) payable returns (uint256)",
+      "function accessCredentials(uint256) view returns (bytes32 renterPubKey, bytes encryptedBlob, uint256 updatedAt)",
+      "function writeAccessCredentials(uint256 rentalId, bytes encryptedBlob)",
       "function acceptRental(uint256 rentalId)",
       "function declineRental(uint256 rentalId)",
       "function endRental(uint256 rentalId)",
@@ -5148,6 +5154,55 @@
       }
     }
 
+    /* ---------- SSH access encryption ----------
+       The renter's encryption keypair is derived from a wallet signature (personal_sign, via
+       ethers' signer.signMessage — wallet-agnostic, works identically in MetaMask/Rabby/OKX/
+       anything else EIP-1193). Signing the same fixed message with the same wallet always
+       produces the same signature (ECDSA is deterministic per RFC 6979), so hashing that
+       signature into a nacl seed always regenerates the SAME X25519 keypair — nothing is ever
+       stored. Only whoever can produce that wallet's signature can ever reconstruct the secret
+       key, so only the renting wallet can decrypt the credentials the agent encrypts to it. */
+
+    function encryptionKeyMessage() {
+      return `NodePool SSH access key\nContract: ${CONTRACT_ADDRESS}\nChain ID: ${CHAIN_ID}\nDo not sign this on any other site.`;
+    }
+
+    // Cached per connected address for this session only — never persisted to storage. Switching
+    // wallets (or reloading) re-derives it from a fresh signature rather than trusting stale state.
+    let cachedEncryptionKeypair = null; // { address, publicKey: Uint8Array, secretKey: Uint8Array }
+
+    async function deriveEncryptionKeypair() {
+      if (!signer || !userAddress) throw new Error('Connect a wallet first');
+      if (cachedEncryptionKeypair && cachedEncryptionKeypair.address === userAddress) {
+        return cachedEncryptionKeypair;
+      }
+      const signature = await signer.signMessage(encryptionKeyMessage());
+      const seed = ethers.getBytes(ethers.keccak256(signature)); // 32 bytes, deterministic from signature
+      const keypair = nacl.box.keyPair.fromSecretKey(seed);
+      cachedEncryptionKeypair = { address: userAddress, publicKey: keypair.publicKey, secretKey: keypair.secretKey };
+      return cachedEncryptionKeypair;
+    }
+
+    // Fetches accessCredentials(rentalId) and decrypts it with the connected wallet's derived
+    // secret key. Returns null if no credentials have been written yet. Throws if the ciphertext
+    // exists but can't be opened with this wallet's key (wrong wallet, or corrupted data).
+    async function decryptAccessCredentials(rentalId) {
+      const creds = await contract.accessCredentials(rentalId);
+      const blobHex = creds.encryptedBlob;
+      if (!blobHex || blobHex === '0x') return null;
+
+      const blob = ethers.getBytes(blobHex);
+      if (blob.length <= 56) throw new Error('Malformed access credentials blob');
+      const ephemeralPubKey = blob.slice(0, 32);
+      const nonce = blob.slice(32, 56);
+      const ciphertext = blob.slice(56);
+
+      const { secretKey } = await deriveEncryptionKeypair();
+      const plaintext = nacl.box.open(ciphertext, nonce, ephemeralPubKey, secretKey);
+      if (!plaintext) throw new Error('Could not decrypt — this wallet did not request this rental');
+      return JSON.parse(new TextDecoder().decode(plaintext));
+    }
+
     // Rentals
     function openRentalModal(machineId) {
       if (!userAddress) {
@@ -5196,8 +5251,12 @@
       const deposit = currentRentalMachine.pricePerHour * BigInt(hours);
 
       try {
+        showToast('Preparing your SSH access key — check your wallet for a signature request...', 'warning');
+        const { publicKey } = await deriveEncryptionKeypair();
+        const renterPubKey = ethers.hexlify(publicKey); // 32 bytes -> bytes32
+
         showToast('Confirm the rental and deposit in your wallet...', 'warning');
-        const tx = await txWithGas(contract.requestRental, machineId, hours, message, { value: deposit });
+        const tx = await txWithGas(contract.requestRental, machineId, hours, message, renterPubKey, { value: deposit });
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
         showToast('Rental requested! Waiting for provider approval.', 'success');
@@ -5445,6 +5504,16 @@
         // machine's owner, can always set it).
         const live = status === 1 && isMachineLive(machine);
 
+        // Only the renter ever attempts decryption — the provider/agent side has no private
+        // key that could open this ciphertext, so there's nothing useful to show them here.
+        let sshCredsAvailable = false;
+        if (status === 1 && !isProvider) {
+          try {
+            const creds = await contract.accessCredentials(rentalId);
+            sshCredsAvailable = !!(creds.encryptedBlob && creds.encryptedBlob !== '0x');
+          } catch { /* treat as not-yet-provisioned */ }
+        }
+
         document.getElementById('chatHeader').innerHTML = `
           <strong>${esc(machine.cpu)}</strong>
           <span style="color: var(--text-muted); margin-left: 0.5rem;">
@@ -5503,6 +5572,18 @@
               </div>
             ` : ''}
 
+            ${status === 1 && !isProvider ? `
+              <div class="preview-wrap" style="margin-top: 1.25rem;">
+                <div class="preview-label">SSH Access</div>
+                <div id="sshAccessPanel">
+                  ${sshCredsAvailable
+                    ? `<button class="btn btn-secondary" onclick="showSshAccess(${rentalId})">Show SSH Access</button>
+                       <p class="form-hint" style="margin-top:0.5rem">Decrypted locally with a key only your wallet can reproduce — nobody else can read this, including us.</p>`
+                    : `<p class="form-hint" style="margin:0">Provisioning your container — this can take a minute after the provider accepts. Refresh to check again.</p>`}
+                </div>
+              </div>
+            ` : ''}
+
             <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap;">
               ${status === 0 && isProvider ? `
                 <button class="btn btn-success" style="flex: 1;" onclick="acceptRental(${rentalId})">Accept</button>
@@ -5525,6 +5606,44 @@
         document.getElementById('rentalDetailInfo').innerHTML =
           '<div class="empty-state">Failed to load rental</div>';
       }
+    }
+
+    async function showSshAccess(rentalId) {
+      const panel = document.getElementById('sshAccessPanel');
+      if (!panel) return;
+      const originalHtml = panel.innerHTML;
+      panel.innerHTML = '<div class="spinner"></div>';
+
+      try {
+        const creds = await decryptAccessCredentials(rentalId);
+        if (!creds) {
+          panel.innerHTML = '<p class="form-hint" style="margin:0">Not provisioned yet. Refresh to check again.</p>';
+          return;
+        }
+        const sshCmd = `ssh -p ${creds.port} ${creds.username}@${creds.host}`;
+        panel.innerHTML = `
+          <div class="spec-row"><span class="spec-label">Host</span><span class="spec-value detail-addr">${esc(creds.host)}</span></div>
+          <div class="spec-row"><span class="spec-label">Port</span><span class="spec-value">${esc(String(creds.port))}</span></div>
+          <div class="spec-row"><span class="spec-label">Username</span><span class="spec-value">${esc(creds.username)}</span></div>
+          <div class="spec-row"><span class="spec-label">Password</span><span class="spec-value detail-addr">${esc(creds.password)}</span></div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+            <code id="sshCmdText" style="flex:1;min-width:0;font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;background:var(--bg-glass);border-radius:6px">${esc(sshCmd)}</code>
+            <button class="btn btn-secondary" style="padding:5px 10px;font-size:0.7rem;white-space:nowrap" onclick="copySshCommand()">Copy</button>
+          </div>
+        `;
+        panel.dataset.sshCmd = sshCmd;
+      } catch (err) {
+        console.error(err);
+        panel.innerHTML = originalHtml;
+        showToast(err.message || 'Failed to decrypt SSH access', 'error');
+      }
+    }
+
+    function copySshCommand() {
+      const panel = document.getElementById('sshAccessPanel');
+      const cmd = panel && panel.dataset.sshCmd;
+      if (!cmd) return;
+      navigator.clipboard.writeText(cmd).then(() => showToast('SSH command copied', 'success'));
     }
 
     async function loadMessages(rentalId) {

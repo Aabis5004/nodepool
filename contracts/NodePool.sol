@@ -58,6 +58,16 @@ contract NodePool {
         uint256 timestamp;
     }
 
+    // Encrypted SSH access credentials for a rental. renterPubKey is an X25519 public key the
+    // renter derives client-side from a wallet signature (never a secret); encryptedBlob is
+    // ciphertext readable only by the matching private key, which never leaves the renter's
+    // browser. See the frontend for the exact derivation.
+    struct AccessCredentials {
+        bytes32 renterPubKey;
+        bytes encryptedBlob;   // agentEphemeralPubKey(32) || nonce(24) || nacl.box ciphertext
+        uint256 updatedAt;
+    }
+
     // ============ State Variables ============
 
     uint256 public machineCount;
@@ -70,6 +80,11 @@ contract NodePool {
     mapping(uint256 => Machine) public machines;
     mapping(uint256 => Rental) public rentals;
     mapping(uint256 => Message) public messages;
+
+    // rentalId => SSH access credentials, encrypted to that rental's renterPubKey. Written only
+    // by the machine's authorized reporter (device key); readable by anyone, but useless without
+    // the renter's private key, which is never submitted anywhere.
+    mapping(uint256 => AccessCredentials) public accessCredentials;
 
     // Per-machine device key authorized to report uptime for THAT machine only (setMachineOnline,
     // reportUptime). Set by the machine owner, either at listing time or via authorizeReporter().
@@ -119,6 +134,7 @@ contract NodePool {
 
     event UptimeReported(uint256 indexed rentalId, bool isOnline, uint256 timestamp);
     event PaymentReleased(uint256 indexed rentalId, address indexed provider, uint256 amount);
+    event AccessCredentialsWritten(uint256 indexed rentalId, uint256 timestamp);
 
     event MessageSent(
         uint256 indexed messageId,
@@ -315,11 +331,15 @@ contract NodePool {
      * @param machineId The machine to rent
      * @param rentalHours Number of hours to rent
      * @param message Message to the provider
+     * @param renterPubKey X25519 public key the renter derived client-side from a wallet
+     *        signature, submitted in this same transaction so SSH access credentials can be
+     *        encrypted to it as soon as the rental goes active. Not a secret — a public key.
      */
     function requestRental(
         uint256 machineId,
         uint256 rentalHours,
-        string calldata message
+        string calldata message,
+        bytes32 renterPubKey
     ) external payable machineExists(machineId) returns (uint256) {
         Machine storage machine = machines[machineId];
         require(machine.isAvailable, "Machine not available");
@@ -347,6 +367,8 @@ contract NodePool {
             lastHealthCheck: 0,
             initialMessage: message
         });
+
+        accessCredentials[rentalId].renterPubKey = renterPubKey;
 
         renterRentals[msg.sender].push(rentalId);
 
@@ -465,6 +487,26 @@ contract NodePool {
     }
 
     /**
+     * @notice Write encrypted SSH access credentials for an active rental. Callable only by the
+     *         machine's owner or its authorized device key — the same permission reportUptime
+     *         uses. encryptedBlob is opaque ciphertext the contract never inspects; only the
+     *         renter's private key (derived client-side, never submitted anywhere) can read it.
+     */
+    function writeAccessCredentials(uint256 rentalId, bytes calldata encryptedBlob)
+        external
+        rentalExists(rentalId)
+        onlyAuthorizedReporterForRental(rentalId)
+    {
+        require(rentals[rentalId].status == RentalStatus.Active, "Rental not active");
+
+        AccessCredentials storage creds = accessCredentials[rentalId];
+        creds.encryptedBlob = encryptedBlob;
+        creds.updatedAt = block.timestamp;
+
+        emit AccessCredentialsWritten(rentalId, block.timestamp);
+    }
+
+    /**
      * @notice End a rental - settles payment and refunds remaining deposit
      */
     function endRental(uint256 rentalId) external rentalExists(rentalId) {
@@ -495,6 +537,10 @@ contract NodePool {
 
         // Make machine available again
         machine.isAvailable = true;
+
+        // The container behind these credentials is being torn down by the agent — revoke
+        // on-chain access immediately rather than leaving stale (if harmless) ciphertext around.
+        delete accessCredentials[rentalId];
 
         if (refund > 0) {
             (bool success, ) = rental.renter.call{value: refund}("");

@@ -13,11 +13,26 @@ require('dotenv').config();
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const { execFile, spawn } = require('child_process');
+const { promisify } = require('util');
 const { ethers } = require('ethers');
+const nacl = require('tweetnacl');
 
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0x897eDCEA8a08693358aC9b6cB9258c5378c09365';
+const execFileAsync = promisify(execFile);
+
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0x54436C58A3671B24E9004858a55889C44585E7E5';
 const RPC_URL = process.env.RPC_URL || 'https://base-sepolia-rpc.publicnode.com';
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 3939);
+
+// Stage 3: isolated per-rental SSH containers, tunneled out with ngrok. See agent/README.md.
+const SSH_IMAGE = process.env.SSH_IMAGE || 'linuxserver/openssh-server';
+const SSH_MEMORY_LIMIT = process.env.SSH_MEMORY_LIMIT || '2g';
+const SSH_CPU_LIMIT = process.env.SSH_CPU_LIMIT || '2';
+const SSH_PIDS_LIMIT = process.env.SSH_PIDS_LIMIT || '256';
+const NGROK_API_URL = 'http://127.0.0.1:4040/api/tunnels';
+const NGROK_POLL_ATTEMPTS = 15;
+const NGROK_POLL_INTERVAL_MS = 1500;
 
 const DEVICE_KEY_FILE = path.join(__dirname, 'device-key.json');
 const MACHINE_ID_FILE = path.join(__dirname, 'machine-id.json');
@@ -35,6 +50,8 @@ const CONTRACT_ABI = [
   'function machineCount() view returns (uint256)',
   'function reporterOf(uint256) view returns (address)',
   'function getMachine(uint256) view returns (tuple(uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt, bool online, uint256 lastSeen))',
+  'function accessCredentials(uint256) view returns (bytes32 renterPubKey, bytes encryptedBlob, uint256 updatedAt)',
+  'function writeAccessCredentials(uint256 rentalId, bytes encryptedBlob)',
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,6 +111,249 @@ function checkOwnHealth(port) {
       resolve(false);
     });
   });
+}
+
+/* ==========================================================================================
+ * Stage 3: isolated per-rental SSH access
+ *
+ * When a rental goes Active, provisionRental() starts a resource-limited, network-isolated
+ * Docker container running sshd, tunnels its SSH port out with ngrok so the renter can connect
+ * from their own laptop like a real VPS, encrypts the connection details to the renter's
+ * on-chain public key (nacl.box — see frontend/index.html for the matching decrypt side), and
+ * writes the ciphertext via writeAccessCredentials(). teardownRental() reverses all of it when
+ * the rental leaves the active set (ended, cancelled, disputed) or the agent shuts down.
+ *
+ * The contract's own onlyAuthorizedReporterForRental gate is what makes this safe to run with
+ * the powerless device key: writeAccessCredentials can only ever touch this one rental's
+ * ciphertext field, nothing that moves funds.
+ * ========================================================================================== */
+
+// rentalId (number) -> { containerName, hostPort, ngrokProcess }. At most one entry in practice —
+// NodePool.sol only allows one active rental per machine at a time — but keyed by rentalId
+// rather than held as a single slot, so nothing breaks if that constraint ever loosens.
+const provisioned = new Map();
+
+let dockerAvailable = null; // null = not checked yet
+let ngrokAvailable = null;
+
+async function checkToolAvailable(bin) {
+  try {
+    await execFileAsync(bin, ['--version']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureProvisioningTools() {
+  if (dockerAvailable === null) {
+    dockerAvailable = await checkToolAvailable('docker');
+    if (!dockerAvailable) {
+      console.warn('  Note: `docker` was not found on PATH. SSH access provisioning is disabled — ' +
+        'this agent will still report uptime normally. Install Docker to enable Stage 3.');
+    }
+  }
+  if (ngrokAvailable === null) {
+    ngrokAvailable = await checkToolAvailable('ngrok');
+    if (!ngrokAvailable) {
+      console.warn('  Note: `ngrok` was not found on PATH. SSH access provisioning is disabled — ' +
+        'this agent will still report uptime normally. Install ngrok (and run `ngrok config ' +
+        'add-authtoken <token>` once) to enable Stage 3.');
+    }
+  }
+  return dockerAvailable && ngrokAvailable;
+}
+
+function randomPassword() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+// Starts an isolated, resource-limited sshd container for this rental. No bind mounts to any
+// host path — that, plus the default (non-privileged) bridge network, is what actually
+// guarantees the renter never reaches the host or the provider's files.
+async function startContainer(rentalId, password) {
+  const containerName = `nodepool-rental-${rentalId}`;
+
+  // Clean up any stale container from a previous crashed run before creating a fresh one.
+  await execFileAsync('docker', ['rm', '-f', containerName]).catch(() => {});
+
+  await execFileAsync('docker', [
+    'run', '-d',
+    '--name', containerName,
+    '--memory', SSH_MEMORY_LIMIT,
+    '--cpus', SSH_CPU_LIMIT,
+    '--pids-limit', SSH_PIDS_LIMIT,
+    '--security-opt', 'no-new-privileges',
+    '--cap-drop', 'ALL',
+    '--cap-add', 'CHOWN',
+    '--cap-add', 'SETUID',
+    '--cap-add', 'SETGID',
+    '--cap-add', 'DAC_OVERRIDE',
+    '-e', 'PUID=1000',
+    '-e', 'PGID=1000',
+    '-e', 'USER_NAME=renter',
+    '-e', `USER_PASSWORD=${password}`,
+    '-e', 'PASSWORD_ACCESS=true',
+    '-p', '0:2222', // random host port — Docker picks it, avoids collisions
+    SSH_IMAGE,
+  ]);
+
+  const { stdout } = await execFileAsync('docker', ['port', containerName, '2222/tcp']);
+  // e.g. "0.0.0.0:54321\n[::]:54321\n" — take the first mapping's port
+  const firstLine = stdout.trim().split('\n')[0];
+  const hostPort = Number(firstLine.split(':').pop());
+  if (!hostPort) throw new Error(`Could not determine host port for ${containerName} (docker port said: ${stdout})`);
+
+  return { containerName, hostPort };
+}
+
+async function stopContainer(containerName) {
+  await execFileAsync('docker', ['rm', '-f', containerName]).catch((err) => {
+    console.warn(`Could not remove container ${containerName}:`, err.message);
+  });
+}
+
+function httpGetJson(url) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(url, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); }
+        catch (err) { reject(err); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(5000, () => { req.destroy(); reject(new Error('timed out')); });
+  });
+}
+
+// Spawns `ngrok tcp <hostPort>` and polls ngrok's local admin API for the public tcp:// endpoint
+// it was assigned. Returns the still-running child process plus the parsed public host/port.
+async function startNgrokTunnel(hostPort) {
+  const ngrokProcess = spawn('ngrok', ['tcp', String(hostPort), '--log=stdout'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let earlyExit = null;
+  ngrokProcess.once('exit', (code) => { earlyExit = code; });
+
+  // Captured so a failure can surface ngrok's actual reason (e.g. missing authtoken, or ngrok's
+  // account-level requirement to add a card before TCP endpoints work even on the free tier —
+  // see https://ngrok.com/docs/errors/err_ngrok_8013) instead of a generic guess.
+  let lastErrorLine = null;
+  const captureError = (chunk) => {
+    const lines = chunk.toString().split('\n').filter((l) => /err|ERROR/i.test(l));
+    if (lines.length) lastErrorLine = lines[lines.length - 1].trim();
+  };
+  ngrokProcess.stdout.on('data', captureError);
+  ngrokProcess.stderr.on('data', captureError);
+
+  for (let attempt = 0; attempt < NGROK_POLL_ATTEMPTS; attempt++) {
+    await sleep(NGROK_POLL_INTERVAL_MS);
+    if (earlyExit !== null) {
+      throw new Error(`ngrok exited early (code ${earlyExit})${lastErrorLine ? `: ${lastErrorLine}` : ' — check `ngrok config add-authtoken <token>` is set up'}`);
+    }
+    try {
+      const data = await httpGetJson(NGROK_API_URL);
+      const tunnel = (data.tunnels || []).find((t) => t.proto === 'tcp' && t.config && t.config.addr && t.config.addr.endsWith(`:${hostPort}`));
+      if (tunnel && tunnel.public_url) {
+        const match = /^tcp:\/\/([^:]+):(\d+)$/.exec(tunnel.public_url);
+        if (!match) throw new Error(`Unexpected ngrok public_url format: ${tunnel.public_url}`);
+        return { ngrokProcess, publicHost: match[1], publicPort: Number(match[2]) };
+      }
+    } catch {
+      // ngrok's local API isn't up yet — keep polling until NGROK_POLL_ATTEMPTS is exhausted
+    }
+  }
+
+  ngrokProcess.kill();
+  throw new Error('Timed out waiting for ngrok to establish a tunnel');
+}
+
+function stopNgrokTunnel(ngrokProcess) {
+  try { ngrokProcess.kill(); } catch { /* already exited */ }
+}
+
+// Encrypts {host, port, username, password} to the rental's renterPubKey with a fresh ephemeral
+// X25519 keypair (perfect forward secrecy — this keypair is used once and discarded). Blob
+// format: ephemeralPubKey(32) || nonce(24) || ciphertext — matches decryptAccessCredentials() in
+// frontend/index.html exactly.
+function encryptCredentials(renterPubKeyHex, creds) {
+  const renterPubKey = ethers.getBytes(renterPubKeyHex);
+  const ephemeral = nacl.box.keyPair();
+  const nonce = nacl.randomBytes(24);
+  const plaintext = new TextEncoder().encode(JSON.stringify(creds));
+  const ciphertext = nacl.box(plaintext, nonce, renterPubKey, ephemeral.secretKey);
+
+  const blob = new Uint8Array(32 + 24 + ciphertext.length);
+  blob.set(ephemeral.publicKey, 0);
+  blob.set(nonce, 32);
+  blob.set(ciphertext, 56);
+  return ethers.hexlify(blob);
+}
+
+// Spins up the container + tunnel for a newly-active rental, encrypts the connection details to
+// the renter's submitted public key, and writes them on-chain. Best-effort: logs and leaves the
+// rental untracked (so the next tick retries) rather than throwing out of the whole loop.
+async function provisionRental(contract, rentalId) {
+  if (provisioned.has(rentalId)) return;
+  if (!(await ensureProvisioningTools())) return;
+
+  console.log(`[${timestamp()}] Rental ${rentalId} - provisioning SSH access...`);
+  const password = randomPassword();
+  let containerName = null;
+  let ngrokProcess = null;
+
+  try {
+    const creds = await contract.accessCredentials(rentalId);
+    if (!creds.renterPubKey || creds.renterPubKey === ethers.ZeroHash) {
+      console.warn(`[${timestamp()}] Rental ${rentalId} - no renterPubKey on-chain, skipping (renter submitted no encryption key)`);
+      return;
+    }
+
+    const started = await startContainer(rentalId, password);
+    containerName = started.containerName;
+    console.log(`[${timestamp()}] Rental ${rentalId} - container ${containerName} listening on host port ${started.hostPort}, pulling image + starting sshd (first run may take a minute)...`);
+
+    const tunnel = await startNgrokTunnel(started.hostPort);
+    ngrokProcess = tunnel.ngrokProcess;
+    console.log(`[${timestamp()}] Rental ${rentalId} - tunnel up at ${tunnel.publicHost}:${tunnel.publicPort}`);
+
+    const blob = encryptCredentials(creds.renterPubKey, {
+      host: tunnel.publicHost,
+      port: tunnel.publicPort,
+      username: 'renter',
+      password,
+    });
+
+    const tx = await contract.writeAccessCredentials(rentalId, blob);
+    await tx.wait();
+    console.log(`[${timestamp()}] Rental ${rentalId} - encrypted access credentials written on-chain`);
+
+    provisioned.set(rentalId, { containerName, hostPort: started.hostPort, ngrokProcess });
+  } catch (err) {
+    console.warn(`[${timestamp()}] Rental ${rentalId} - provisioning failed: ${err.message}`);
+    if (ngrokProcess) stopNgrokTunnel(ngrokProcess);
+    if (containerName) await stopContainer(containerName);
+    // Not added to `provisioned` — the next tick will retry from scratch.
+  }
+}
+
+async function teardownRental(rentalId) {
+  const record = provisioned.get(rentalId);
+  if (!record) return;
+  provisioned.delete(rentalId);
+
+  console.log(`[${timestamp()}] Rental ${rentalId} - tearing down SSH access...`);
+  stopNgrokTunnel(record.ngrokProcess);
+  await stopContainer(record.containerName);
+  // On-chain credentials are already deleted by the contract's _endRental() — nothing to clear here.
+  console.log(`[${timestamp()}] Rental ${rentalId} - torn down`);
+}
+
+async function teardownAllProvisioned() {
+  const ids = Array.from(provisioned.keys());
+  for (const rentalId of ids) {
+    await teardownRental(rentalId);
+  }
 }
 
 function loadMachineId() {
@@ -233,6 +493,13 @@ async function runUptimeLoop(contract, machineId) {
       return;
     }
 
+    // Tear down any previously-provisioned rental that's no longer active (ended, cancelled,
+    // disputed) before anything else, regardless of whether the active list is now empty.
+    const activeSet = new Set(activeRentalIds);
+    for (const rentalId of Array.from(provisioned.keys())) {
+      if (!activeSet.has(rentalId)) await teardownRental(rentalId);
+    }
+
     if (activeRentalIds.length === 0) {
       console.log(`[${timestamp()}] Machine ${machineId} online - no active rentals`);
       return;
@@ -245,6 +512,12 @@ async function runUptimeLoop(contract, machineId) {
           ? `[${timestamp()}] Machine ${machineId} online - reported uptime for rental ${rentalId}`
           : `[${timestamp()}] Machine ${machineId} online - reportUptime for rental ${rentalId} failed: ${result.reason}`
       );
+
+      // Provision SSH access once a rental is genuinely active - fire-and-forget so a slow
+      // container pull/tunnel setup for one rental never blocks the heartbeat for others.
+      provisionRental(contract, rentalId).catch((err) => {
+        console.warn(`[${timestamp()}] Rental ${rentalId} - provisioning error: ${err.message}`);
+      });
     }
   };
 
@@ -270,6 +543,8 @@ async function runUptimeLoop(contract, machineId) {
     } catch (err) {
       console.warn('Could not mark rentals offline on shutdown:', err.message);
     }
+
+    await teardownAllProvisioned();
     process.exit(0);
   };
   process.on('SIGINT', shutdown);

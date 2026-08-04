@@ -1,46 +1,73 @@
-Goal: make NodePool safe for real public providers. NO ONE should ever paste a
-private key into a file. Redesign machine listing + uptime so the provider's real
-wallet signs in the browser, and the agent only holds a powerless "device key"
-that can report uptime and nothing else.
+Goal: Stage 3 — a renter gets real, private, VPS-style SSH access to an ISOLATED
+container on the rented machine. Credentials are ENCRYPTED so ONLY the renting
+wallet can read them, and it must work in ALL wallets (MetaMask, Rabby, OKX), not
+just MetaMask. Renting/payment already works.
 
-Read the whole project first: frontend/index.html, agent/agent.js, contracts/
-(the NodePool.sol contract), and scripts/deploy.js. Then propose a plan before
-writing code, and confirm the contract changes with me.
+Read the whole project first (agent/agent.js, contracts/NodePool.sol, frontend/
+index.html, agent/README.md Stage 3). Give a full PLAN and confirm with me BEFORE
+writing code or deploying. Do NOT deploy without my explicit go.
 
-## Target design
-1. LISTING IN BROWSER (wallet-signed):
-   - Add a provider "Register Machine" flow in the frontend where the connected
-     wallet signs listMachine() directly. Specs can be entered OR read from an
-     agent-provided payload, but the on-chain signature must come from the
-     provider's browser wallet. No private key in any file.
+## Encryption model — wallet-agnostic (IMPORTANT)
+Do NOT use MetaMask's eth_getEncryptionPublicKey / eth_decrypt — they are
+deprecated and unsupported in Rabby/OKX, which would break multi-wallet support.
 
-2. DEVICE KEY FOR HEARTBEAT (powerless):
-   - agent.js generates its own random keypair on first run (store the device
-     key in agent/device-key.json, gitignored). This device key ONLY reports
-     uptime. It must NOT be able to withdraw, delist, or move funds.
-   - The agent prints its device address so the provider can authorize it.
+Instead:
+- The renter's browser generates its OWN encryption keypair using a standard library
+  (tweetnacl / nacl.box, or eccrypto). The private key is derived deterministically
+  from a wallet SIGNATURE so the renter can always regenerate it from their wallet
+  (e.g. renter signs a fixed message with their wallet; hash the signature into the
+  nacl secret key). This works in every wallet because it only needs personal_sign,
+  which all wallets support — no wallet-specific decryption API.
+- At rent time, the browser derives this keypair, and submits the PUBLIC key on-chain
+  with the rental.
+- The agent encrypts the container credentials to that public key (nacl.box) and
+  writes the encrypted blob on-chain for that rental.
+- To view, the renter signs the same fixed message, regenerates the private key in
+  the browser, and decrypts. Only the renting wallet can produce that signature, so
+  only they can decrypt. Data is public on-chain but useless to everyone else.
 
-3. CONTRACT CHANGE (confirm with me before implementing):
-   - Replace the single global keeper for uptime with a per-machine authorized
-     reporter. Add e.g. authorizeReporter(machineId, reporterAddress) callable by
-     the machine owner, and gate reportUptime/setMachineOnline so the machine's
-     authorized reporter (the device key) can call them for THAT machine only.
-   - Keep withdrawEarnings, funds, and delist owner-only. The device key can
-     never touch money.
+This gives full end-to-end encryption, works in all wallets, and needs no deprecated
+APIs.
 
-4. AGENT:
-   - On start, if the machine isn't registered yet, print instructions: "Open the
-     website, connect your wallet, Register Machine, and authorize this device
-     address: 0x...". Once authorized, the agent heartbeats with the device key.
-   - Remove the requirement for PROVIDER_PRIVATE_KEY in .env.
+## Access model
+1. When a rental becomes Active, the agent on the provider machine:
+   a. Starts an ISOLATED, resource-limited Docker container (renter NEVER reaches
+      the host or the provider's files — container only).
+   b. Sets up SSH login inside the container.
+   c. Exposes the container's SSH port via a tunnel (cloudflared or ngrok — choose
+      one, document provider setup) so the renter can connect from their own laptop
+      over the internet like a real VPS.
+   d. Encrypts {host, port, username, password} to the renter's public key and
+      writes it on-chain for that rental.
+2. Frontend: at rent time, derive + submit the renter's encryption public key; after
+   provisioning, ONLY the renter's wallet can decrypt and see the ssh connection
+   string. Other wallets see only ciphertext.
+3. On rental end/cancel/agent-shutdown: destroy the container, close the tunnel,
+   expire the on-chain creds. Fresh container next rental.
 
-## Also fix
-- The OVERFLOW(17) panic in reportUptime on existing rentals — find the unchecked
-  arithmetic in NodePool.sol and fix it so uptime reporting can't overflow.
+## Hard security requirements
+- Container isolation is mandatory; the provider's host is NEVER exposed.
+- Credentials only ever readable by the renting wallet (encrypted end-to-end).
+- Access scoped to rental duration, revoked on end.
+- Keep existing security model: the agent's on-chain identity stays the powerless
+  device key (can report uptime + write encrypted creds, but CANNOT move funds,
+  withdraw, or delist).
+- Do not break: multi-wallet login, browser-signed listing, device-key uptime
+  reporting, rent/settle.
 
-## Constraints
-- Do not break the existing renter flow (browse, requestRental, withdraw).
-- This needs a fresh contract deploy (scripts/deploy.js) since the contract
-  changes; update the CONTRACT_ADDRESS in frontend and agent after deploy.
+## Deliverables
+- Contract: per-rental renter-encryption-pubkey + encrypted-credentials fields.
+  Writing creds callable ONLY by the machine's authorized reporter (device key);
+  reading is public. Confirm the device key still cannot touch funds. Fresh deploy;
+  then update CONTRACT_ADDRESS in frontend, agent, deployments.json (all three match).
+- Agent: Docker lifecycle + SSH setup + tunnel + encrypt-to-renter + write on-chain,
+  tied to active rentals; full teardown on end.
+- Frontend: derive renter encryption key from a wallet signature; submit pubkey at
+  rent time; decrypt + show connection string to the renter only.
+- Docs: provider must install Docker + cloudflared; how a renter connects.
 
-## Deliver in phases, confirm the contract design with me before deploying.
+## Process
+Plan first. Confirm before coding: (a) tunnel choice cloudflared vs ngrok, (b)
+container image + resource limits, (c) the exact wallet-signature→nacl-keypair
+derivation, (d) on-chain schema for pubkey + encrypted blob. THEN implement in
+phases. Hold deploy until I say go.
