@@ -1,4 +1,3 @@
-cat > ~/hackathon/README.md << 'ENDOFREADME'
 # NodePool
 
 Rent out your idle computer, or rent someone else's. NodePool turns a computer that's just sitting there into a small server anyone can rent by the hour, and pays the owner for every hour it's online. No company in the middle. A smart contract on Base Sepolia holds the money, checks the machine is online, and pays out automatically.
