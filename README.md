@@ -1,240 +1,153 @@
 # NodePool
 
-NodePool is a decentralized compute marketplace. Anyone with an idle computer can list it and
-earn money for every hour it's actually up and rented; anyone who needs compute can rent one and
-get real SSH access to it, like a small VPS, for as long as they pay for. There's no company
-running servers in the middle. The contract holds the escrow, verifies uptime, and settles
-payment; a small provider-run agent handles listing, heartbeats, and setting up an isolated
-container for the renter; the browser handles everything else, including making sure only the
-renting wallet can ever see the SSH credentials.
+Rent out your idle computer, or rent someone else's. NodePool turns a computer that's just sitting there into a small server anyone can rent by the hour, and pays the owner for every hour it's online. No company in the middle. A smart contract on Base Sepolia holds the money, checks the machine is online, and pays out automatically.
 
 Live app: nodepool.vercel.app
 
-Deployed contract (Base Sepolia, chain 84532): `0x54436C58A3671B24E9004858a55889C44585E7E5`
+Contract (Base Sepolia, chain 84532): 0x54436C58A3671B24E9004858a55889C44585E7E5
 
-## How it works
+## What this is
 
-**If you're providing a machine**, you register it from the website with your wallet — CPU, RAM,
-storage, OS, and a price per hour. You run a small agent process on the machine itself, which
-sends a heartbeat to the contract roughly once a minute so renters can see it's actually online.
-When someone rents your machine, the agent spins up an isolated Docker container with SSH access,
-tunnels it out to the internet, and hands the connection details to the renter — encrypted so
-only they can read them. As long as your machine stays online, the contract releases payment to
-you hour by hour out of the renter's deposit. If it goes offline, payment stops.
+If you have a computer that's idle, list it and earn. If you need a server, rent one and get real SSH access, like a cheap VPS. Only the renter's wallet can unlock the login details, and the renter is locked in a sandbox that can't touch the owner's real files.
 
-**If you're renting a machine**, you browse the marketplace, pick one that's online, and pay a
-deposit up front for however many hours you want. Once the provider accepts, their agent
-provisions a container for you within about a minute. You open the rental in the app, sign a
-message with your wallet to decrypt the access details, and you get a normal SSH connection
-string — host, port, username, password. You connect and use the machine like you would any
-rented server. Nothing you do in that container touches the provider's actual computer. When the
-rental ends, the container is destroyed and your access is gone.
+Two roles:
 
-**Escrow and settlement** happen entirely in the contract. Renting a machine locks your deposit
-in the contract, not in anyone's hands. The provider's agent reports uptime for the rental, and
-the contract pays out of the deposit for each verified hour, refunding whatever's left over when
-the rental ends, gets cancelled, or the provider declines it.
+- Provider: runs the agent on their machine and lists it. Earns per hour it's online.
+- Renter: rents a machine from the website and gets SSH access. Pays per hour.
 
-## Architecture
+The contract holds the deposit in escrow, pays the provider hour by hour as the machine proves it's online, and refunds the rest when the rental ends.
 
-**`contracts/NodePool.sol`** is the whole marketplace: listing machines, requesting and accepting
-rentals, escrow, hourly settlement based on reported uptime, a chat channel per rental, and the
-encrypted SSH credentials for a rental once it's active. Everything that moves money or changes a
-listing requires the machine owner's real wallet to sign. The one exception is a narrow set of
-functions a machine's low-privilege "device key" is allowed to call — see Security model below.
+## Part 1: Rent a machine (renter)
 
-**`frontend/index.html`** is the whole web app — a single static HTML file with the marketplace,
-wallet connection (any injected wallet, not just MetaMask, via EIP-6963 discovery), the machine
-registration form, rental flow, and the rental detail view where a renter decrypts and sees their
-SSH access. It talks to the contract directly with ethers.js; there's no backend server.
+You only need a wallet and an SSH client. SSH is already on Mac and Linux. On Windows, use PowerShell (it has ssh built in) or WSL.
 
-**`agent/agent.js`** runs on the provider's machine. It never touches the owner's wallet. On
-first run it generates its own keypair (the device key), and does nothing until the machine owner
-authorizes it from the website. Once authorized, it heartbeats the contract, reports uptime for
-active rentals, and, when a rental goes active, provisions an isolated SSH container for the
-renter, encrypts the connection details to the renter's public key, and writes the ciphertext to
-the contract.
+1. Open nodepool.vercel.app and connect your wallet. You need a little Base Sepolia ETH for the deposit and gas. Get it free at https://www.alchemy.com/faucets/base-sepolia
+2. Go to the Marketplace tab and pick a machine that shows Online.
+3. Choose how many hours and confirm. Your wallet signs a free message first (this makes your decryption key), then confirms the payment transaction.
+4. Wait for the provider to accept. Their agent builds your container, usually within a minute.
+5. Go to My Rentals, open the rental, and click Show SSH Access. Sign the message. The app shows your host, port, username, password, and a copy-ready command.
+6. In your terminal, run the command it gives you:
 
-## Security model
+   ssh -p PORT renter@HOST
 
-The device key the agent generates is deliberately powerless outside of what it's authorized to
-do. It can call exactly three functions on the contract, all scoped to the one machine that
-authorizes it: reporting online/offline status, reporting uptime for that machine's rentals, and
-writing encrypted SSH credentials for that machine's active rental. It cannot withdraw earnings,
-delist a machine, change its price, or move any funds anywhere. Those all require the machine
-owner's real wallet. If a device key were ever lost or leaked, the owner can immediately
-re-authorize a different one from the website without re-listing the machine, which revokes the
-old key's access entirely.
+   Paste the password when asked. You now have a shell on the rented machine.
 
-SSH credentials are end-to-end encrypted to the renter, not just access-controlled. When a renter
-requests a rental, their browser derives an encryption keypair by signing a fixed message with
-their wallet and hashing the signature — the same wallet always regenerates the same keypair, and
-nothing is ever stored. Only the public half of that keypair goes on-chain with the rental
-request. When the agent provisions the container, it encrypts the host, port, username, and
-password to that public key and writes only the ciphertext to the contract. That ciphertext is
-technically public, like everything on-chain, but it's useless to anyone who can't reproduce the
-matching wallet signature — which is only the wallet that requested the rental. This works with
-any wallet that supports a normal signing request, not just MetaMask.
+When the rental ends, runs out, or is cancelled, the container is destroyed and your access is gone. To keep using it, rent again.
 
-The container itself is isolated from the provider's actual machine: it runs with dropped Linux
-capabilities, a memory/CPU/process cap, no mounted host directories, and a randomly assigned
-port. A renter inside the container has no path to the provider's files or anything else running
-on that computer.
+## Part 2: Rent out your computer (provider)
 
-## Provider setup
+Full setup from a clean machine. Do every step in order. Commands are for Linux or WSL on Windows.
 
-This walks through everything from a clean machine.
+### Step 1: Install Git and Node
 
-**1. Install Node.js.** Get an LTS release from nodejs.org, or use your system's package manager.
-Confirm it worked with `node --version`.
+Check what you have:
 
-**2. Install Docker.** On Linux, install `docker.io` or Docker Engine from your distro's
-instructions; on macOS or Windows, install Docker Desktop. Start it, then confirm it's running
-with:
+    git --version
+    node --version
 
-```bash
-docker ps
-```
+If Git is missing:
 
-If that returns a header row instead of an error, Docker is up. On Linux you'll also want your
-user in the `docker` group so the agent can run Docker commands without `sudo`:
+    sudo apt update
+    sudo apt install -y git
 
-```bash
-sudo usermod -aG docker $USER
-```
+If Node is missing, install Node 20 LTS:
 
-then log out and back in for it to take effect.
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt install -y nodejs
 
-**3. Create an ngrok account and install ngrok.** Go to ngrok.com, sign up for a free account,
-and install the ngrok CLI for your platform from their download page. Once it's installed, open
-your ngrok dashboard, find your authtoken under "Your Authtoken," and run:
+### Step 2: Download NodePool
 
-```bash
-ngrok config add-authtoken <your-authtoken>
-```
+    git clone https://github.com/Aabis5004/nodepool
+    cd nodepool
 
-**4. Add a payment card to your ngrok account.** This is easy to miss and it will block SSH
-provisioning if you skip it. ngrok now requires a verified card on file before it will open TCP
-endpoints, which is what SSH tunneling needs, even on the free tier. Without it, the first rental
-that tries to provision will fail with an error containing `ERR_NGROK_8013`. Add a card under
-Billing in your ngrok dashboard — ngrok is explicit that the free tier is not charged for this,
-it's just used to verify you're a real account. Do this once, before your first rental.
+### Step 3: Install Docker
 
-**5. Configure the agent.** From the repo root:
+Docker runs the isolated container each renter logs into. The agent starts and stops these for you automatically.
 
-```bash
-cd agent
-npm install
-cp .env.example .env
-```
+    sudo apt update
+    sudo apt install -y docker.io
+    sudo service docker start
+    sudo usermod -aG docker $USER
 
-The defaults in `.env` already point at the deployed contract and a public RPC endpoint, so you
-usually don't need to change anything:
+Log out and back in (or reopen your terminal), then confirm:
 
-- `CONTRACT_ADDRESS` — the NodePool contract on Base Sepolia
-- `RPC_URL` — a public Base Sepolia RPC
-- `HEALTH_PORT` — local port for the agent's health check server
+    docker ps
 
-There is no private key to configure. The agent generates its own device key the first time it
-runs.
+If that prints a table header instead of an error, Docker is ready. (On Mac/Windows: install Docker Desktop and leave it running.)
 
-**6. Run the agent and copy its device address.**
+### Step 4: Install ngrok and connect your account
 
-```bash
-npm start
-```
+ngrok gives your container a public address so renters can connect. The agent runs it for you automatically; you set it up once.
 
-The first time it runs, it prints something like:
+Install it:
 
-```
-Generated a new device key: 0xAB61...6602
-Device address: 0xAB61...6602
-This device is not authorized to report for any machine yet.
-```
+    curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+    echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+    sudo apt update
+    sudo apt install -y ngrok
 
-Copy that address. Leave the agent running.
+Then sign up at https://ngrok.com, copy your authtoken from the dashboard, and run:
 
-**7. Register the machine on the site.** Open the app, connect your wallet, go to My Machines,
-and click Register Machine. Fill in the specs and price per hour, paste the device address from
-the previous step into the Device Address field, and submit. This lists the machine and
-authorizes the agent's device key in a single transaction. Within about ten seconds, the agent
-picks up the authorization and starts heartbeating.
+    ngrok config add-authtoken PASTE_YOUR_TOKEN_HERE
 
-**8. Fund the device wallet.** The device key needs a small amount of its own Base Sepolia ETH to
-pay gas for heartbeats and, later, for provisioning transactions. About 0.002 ETH is enough to
-run for a long time. Send it to the device address you copied earlier from a
-[Base Sepolia faucet](https://www.alchemy.com/faucets/base-sepolia) or from any wallet you
-control.
+### Step 5: Add a card to ngrok (required, easy to miss)
 
-**9. Confirm it's live.** Back on the site, your machine should show an online status within a
-minute or so of the agent starting. If it doesn't, check the agent's terminal output — it prints
-a line every cycle explaining what it did.
+ngrok will not open the connection SSH needs unless a payment card is on file, even on the free tier. Skip this and the first rental fails with an error containing ERR_NGROK_8013. In the ngrok dashboard, go to Billing and add a card. The free tier is not charged. Do this once.
 
-## Renter guide
+### Step 6: Set up the agent
 
-**1. Connect your wallet.** You'll need a small amount of Base Sepolia ETH to cover the rental
-deposit and gas.
+    cd agent
+    npm install
+    cp .env.example .env
 
-**2. Rent a machine.** Go to the Marketplace tab and pick one that shows as online. Choose how
-many hours you want and confirm. Your wallet will ask you to sign a message first — this derives
-your encryption key and costs nothing — and then to confirm the rental transaction, which locks
-your deposit in escrow.
+The .env has no private key and nothing secret. The defaults already point at the live contract. The agent makes its own key on first run.
 
-**3. Wait for the provider to accept.** Once they do, the rental becomes active and their agent
-starts provisioning your container. This can take up to about a minute the first time, since the
-image has to be pulled.
+### Step 7: Run the agent
 
-**4. Open the rental and show your SSH access.** Go to My Rentals, open the rental, and once
-provisioning is done you'll see a Show SSH Access button. Click it, sign the message your wallet
-asks for, and the app decrypts your host, port, username, and password locally and shows you a
-ready-to-copy SSH command.
+Make sure Docker is running (docker ps), then:
 
-**5. Connect.**
+    npm start
 
-```bash
-ssh -p <port> renter@<host>
-```
+It prints a device address like 0xAB61...6602 and says it is not authorized yet. Copy that address and leave the agent running.
 
-Enter the password shown in the app when prompted.
+### Step 8: Register your machine
 
-**6. When you're done.** Ending the rental, letting it run out of paid hours, or the provider
-cancelling all destroy the container and clear your access from the contract. If you want to keep
-using the machine, rent it again.
+On nodepool.vercel.app, connect your wallet, go to My Machines, click Register Machine. Fill in specs and price, paste the device address from Step 7 into the Device Address field, and submit. This lists and authorizes in one transaction. Within about ten seconds the agent prints "Authorized for Machine N".
 
-## Deploying your own instance
+### Step 9: Fund the device wallet
 
-If you want to run your own copy of the contract:
+The device address needs a small amount of Base Sepolia ETH for gas. Send about 0.002 ETH to it. Faucet: https://www.alchemy.com/faucets/base-sepolia
 
-```bash
-npx hardhat compile
-npx hardhat run scripts/deploy.js --network baseSepolia
-```
+### Step 10: Confirm you're online
 
-This deploys a fresh `NodePool` contract to Base Sepolia and writes the address to
-`deployments.json`. You then need to update `CONTRACT_ADDRESS` in three places so the frontend
-and every agent talk to the same contract:
+Within a minute your machine shows Online and is rentable. If it stays offline, check the agent terminal; the usual cause is the device wallet having no ETH (Step 9). Leave the agent running. When someone rents, the agent starts the container and tunnel automatically. You never run Docker or ngrok commands yourself.
 
-- `frontend/index.html` — the `CONTRACT_ADDRESS` constant near the top of the script
-- `agent/.env` — the `CONTRACT_ADDRESS` variable (or leave it unset and edit the default in
-  `agent/agent.js` directly)
-- `deployments.json` — already written by the deploy script, just confirm it matches
+## Security
 
-Any existing listings, rentals, and device key authorizations only exist on the old contract —
-a redeploy starts the marketplace empty.
+The agent never uses your real wallet. It makes its own low-power device key that can only report status, report uptime, and write encrypted login details for the one machine you authorized. It cannot withdraw earnings, delist, or move money. Those need your real wallet. If a device key is lost, re-authorize a new one from the site in one click.
 
-## Networks and tools
+A renter's SSH login is encrypted so only their wallet can read it. Their browser makes an encryption key from a wallet signature, and the agent encrypts the login to it. The ciphertext is public on-chain but useless to anyone but the renting wallet. Works with any wallet.
+
+The renter runs in a container with capped memory, CPU, and processes, and no access to your real files.
+
+## Deploy your own contract
+
+Only if you want a separate marketplace.
+
+    npm install
+    npx hardhat compile
+    npx hardhat run scripts/deploy.js --network baseSepolia
+
+The deployer wallet needs Base Sepolia ETH. After deploying, set the new address in frontend/index.html, agent/.env, and deployments.json so all three match. A fresh deploy starts empty.
+
+## Tools used
 
 - Base Sepolia, chain ID 84532
-- Contracts written in Solidity, built and deployed with Hardhat
-- Provider SSH containers run `linuxserver/openssh-server`
-- Tunnels are ngrok TCP endpoints
-- SSH credential encryption uses tweetnacl (NaCl's box construction, X25519 + Poly1305)
+- Solidity contract, built with Hardhat
+- Renter containers run linuxserver/openssh-server
+- Public access via ngrok TCP tunnels
+- Login encryption with tweetnacl (X25519 + Poly1305)
 
 ## Known limitations
 
-The device key's gas has to be funded manually right now — there's no automatic top-up, so a
-provider needs to keep an eye on its balance for a machine that's been running a long time. Only
-one container runs per machine at a time, which matches how the contract only allows one active
-rental per machine — this isn't a shortcut, it's the actual rental model. And ngrok's free tier
-has bandwidth and session limits that matter for heavy or long-running use; a paid plan or a
-different tunnel provider can be swapped in without changing anything on-chain.
+The device wallet's gas is funded manually for now. One rental per machine at a time. ngrok's free tier has usage limits; a paid plan or another tunnel can be swapped in without code changes.
