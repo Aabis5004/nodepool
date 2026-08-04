@@ -1,3 +1,4 @@
+cat > ~/hackathon/README.md << 'ENDOFREADME'
 # NodePool
 
 Rent out your idle computer, or rent someone else's. NodePool turns a computer that's just sitting there into a small server anyone can rent by the hour, and pays the owner for every hour it's online. No company in the middle. A smart contract on Base Sepolia holds the money, checks the machine is online, and pays out automatically.
@@ -151,3 +152,5 @@ The deployer wallet needs Base Sepolia ETH. After deploying, set the new address
 ## Known limitations
 
 The device wallet's gas is funded manually for now. One rental per machine at a time. ngrok's free tier has usage limits; a paid plan or another tunnel can be swapped in without code changes.
+ENDOFREADME
+echo "README written"; head -5 ~/hackathon/README.md</parameter>
