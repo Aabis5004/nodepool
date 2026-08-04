@@ -2962,6 +2962,13 @@
         </div>
 
         <div class="card" style="margin-top: 1.5rem;">
+          <h3 style="margin-bottom: 0.5rem;">Your Rental History</h3>
+          <div id="providerRentalHistory">
+            <div class="empty-state" style="padding: 2rem;">Connect your wallet to see rentals on your machines.</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
           <h3 style="margin-bottom: 0.5rem;">Recent Activity</h3>
           <div id="activityFeed">
             <div class="empty-state" style="padding: 2rem;">Loading activity…</div>
@@ -3190,7 +3197,7 @@
   <script>
     // Contract configuration - UPDATE THIS AFTER DEPLOYMENT
     // Deployed to Base Sepolia (chainId 84532)
-    const CONTRACT_ADDRESS = '0x54436C58A3671B24E9004858a55889C44585E7E5';
+    const CONTRACT_ADDRESS = '0x2D16D7F81ac8a13b1A99E74dFDc94eb6107A8243';
     const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
     const CHAIN_ID = 84532;
     const CHAIN_ID_HEX = '0x14a34'; // 84532
@@ -3207,7 +3214,7 @@
       "function machineCount() view returns (uint256)",
       "function rentalCount() view returns (uint256)",
       "function machines(uint256) view returns (uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt, bool online, uint256 lastSeen)",
-      "function rentals(uint256) view returns (uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage)",
+      "function rentals(uint256) view returns (uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 secondsPaid, uint256 secondsVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage)",
       "function pendingWithdrawals(address) view returns (uint256)",
       "function getAvailableMachines() view returns (uint256[])",
       "function getMyMachines(address) view returns (uint256[])",
@@ -3215,7 +3222,7 @@
       "function getMachine(uint256) view returns (tuple(uint256 id, address owner, string cpu, string ram, string storage_, string os, uint256 pricePerHour, string healthEndpoint, bool isAvailable, uint256 uptimeScore, uint256 totalEarnings, uint256 createdAt, bool online, uint256 lastSeen))",
       "function isMachineOnline(uint256) view returns (bool)",
       "function setMachineOnline(uint256 machineId, bool isOnline)",
-      "function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))",
+      "function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 secondsPaid, uint256 secondsVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))",
       "function getMessages(uint256) view returns (uint256[])",
       "function messages(uint256) view returns (uint256 rentalId, address sender, string text, uint256 timestamp)",
       "function getProviderStats(address) view returns (uint256 totalMachines, uint256 totalEarnings, uint256 avgUptimeScore)",
@@ -3237,7 +3244,7 @@
       "event RentalRequested(uint256 indexed rentalId, uint256 indexed machineId, address indexed renter, uint256 deposit, uint256 hours_)",
       "event RentalAccepted(uint256 indexed rentalId, uint256 startTime)",
       "event RentalDeclined(uint256 indexed rentalId)",
-      "event RentalEnded(uint256 indexed rentalId, uint256 hoursPaid, uint256 refund)",
+      "event RentalEnded(uint256 indexed rentalId, uint256 secondsPaid, uint256 refund)",
       "event MessageSent(uint256 indexed messageId, uint256 indexed rentalId, address indexed sender, string text)"
     ];
 
@@ -3295,6 +3302,7 @@
     let currentRentalMachine = null;
     let currentChatRentalId = null;
     let rentalDetailTimer = null;   // refreshes the open rental detail view
+    let rentalLiveTicker = null;    // ticks earned/remaining/escrow every second between refreshes
 
     // Auth state — 'metamask' or 'privy' (Privy embedded wallet, signed in with email)
     let authMode = null;
@@ -5351,7 +5359,8 @@
 
         rentalsList.innerHTML = userRentals.map(({ rental, machine }) => {
           const status = Number(rental.status);
-          const progress = rental.totalHours > 0 ? (Number(rental.hoursVerified) / Number(rental.totalHours)) * 100 : 0;
+          const totalSeconds = Number(rental.totalHours) * 3600;
+          const progress = totalSeconds > 0 ? (Number(rental.secondsVerified) / totalSeconds) * 100 : 0;
 
           return `
             <div class="card rental-card" onclick="openRentalDetail(${rental.id})">
@@ -5364,8 +5373,8 @@
                   <div class="progress-fill" style="width: ${progress}%"></div>
                 </div>
                 <div class="spec-row">
-                  <span class="spec-label">Hours Verified</span>
-                  <span class="spec-value">${rental.hoursVerified} / ${rental.totalHours}</span>
+                  <span class="spec-label">Time Verified</span>
+                  <span class="spec-value">${formatDuration(Number(rental.secondsVerified))} / ${formatDuration(totalSeconds)}</span>
                 </div>
                 ${machineLiveStatusHtml(machine, false)}
               ` : ''}
@@ -5445,9 +5454,19 @@
     function formatRemaining(endTimeSec) {
       const remaining = Number(endTimeSec) * 1000 - Date.now();
       if (remaining <= 0) return 'Term elapsed';
-      const h = Math.floor(remaining / 3600000);
-      const m = Math.floor((remaining % 3600000) / 60000);
-      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+      return formatDuration(remaining / 1000);
+    }
+
+    // Renders a duration in seconds as "1h 5m", "5m 30s", or "12s" — used for both the live
+    // countdown and the live "seconds verified" readout, so the two always share formatting.
+    function formatDuration(totalSeconds) {
+      const s = Math.max(0, Math.floor(totalSeconds));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${sec}s`;
+      return `${sec}s`;
     }
 
     async function openRentalDetail(rentalId) {
@@ -5482,6 +5501,7 @@
     function closeRentalDetail() {
       clearInterval(rentalDetailTimer);
       currentChatRentalId = null;
+      clearInterval(rentalLiveTicker);
       switchTab('my-rentals');
       loadMyRentals();
     }
@@ -5494,9 +5514,11 @@
         const status = Number(rental.status);
         const isProvider = machine.owner.toLowerCase() === userAddress.toLowerCase();
         const totalHours = Number(rental.totalHours);
-        const verified = Number(rental.hoursVerified);
-        const progress = totalHours > 0 ? Math.min(100, (verified / totalHours) * 100) : 0;
-        const paid = BigInt(rental.hoursPaid) * machine.pricePerHour;
+        const totalSeconds = totalHours * 3600;
+        const secondsVerified = Number(rental.secondsVerified);
+        const progress = totalSeconds > 0 ? Math.min(100, (secondsVerified / totalSeconds) * 100) : 0;
+        // Streamed per second, not whole hours — a 40-minute rental pays for 40 minutes.
+        const paid = (BigInt(rental.secondsPaid) * machine.pricePerHour) / 3600n;
 
         // Machine's actual agent heartbeat - not the rental's own lastHealthCheck (that only
         // moves when the keeper calls reportUptime, which requires keeper authorization the
@@ -5546,24 +5568,25 @@
 
             <span class="spec-label">Uptime verified</span>
             <div class="progress-bar" style="margin-top: 0.5rem;">
-              <div class="progress-fill" style="width: ${progress}%"></div>
+              <div class="progress-fill" id="uptimeProgressFill" style="width: ${progress}%"></div>
             </div>
-            <div class="form-hint">${verified} of ${totalHours} hours paid out · ${progress.toFixed(0)}%</div>
+            <div class="form-hint" id="uptimeProgressText">${formatDuration(secondsVerified)} of ${formatDuration(totalSeconds)} paid out · ${progress.toFixed(0)}%</div>
 
             <div class="metric-row">
               <div class="metric">
-                <div class="metric-value">${status === 1 ? formatRemaining(rental.endTime) : '—'}</div>
+                <div class="metric-value" id="metricTimeRemaining">${status === 1 ? formatRemaining(rental.endTime) : '—'}</div>
                 <div class="metric-label">Time remaining</div>
               </div>
               <div class="metric">
-                <div class="metric-value">${trimEth(ethers.formatEther(rental.deposit))}</div>
+                <div class="metric-value" id="metricEscrowLeft">${trimEth(ethers.formatEther(rental.deposit))}</div>
                 <div class="metric-label">Escrow left (ETH)</div>
               </div>
               <div class="metric">
-                <div class="metric-value">${trimEth(ethers.formatEther(paid))}</div>
+                <div class="metric-value" id="metricPaidOut">${trimEth(ethers.formatEther(paid))}</div>
                 <div class="metric-label">Paid out (ETH)</div>
               </div>
             </div>
+            ${status === 1 ? `<div class="form-hint" style="margin-top:0.35rem">Paid out and time remaining update live, assuming the machine stays online — they resync from the blockchain every 15 seconds.</div>` : ''}
 
             ${rental.initialMessage ? `
               <div class="preview-wrap" style="margin-top: 0;">
@@ -5601,6 +5624,49 @@
             </div>
           </div>
         `;
+
+        // Live per-second ticker between the 15s full refreshes above. Reconstructs the
+        // original deposit from what's left plus what's already been paid (deposit and paid
+        // move in lockstep — every wei that leaves one enters the other), then projects forward
+        // from startTime using the same elapsed/rate math as reportUptime, capped at endTime.
+        // This assumes continuous online time since it can't know about gaps between real
+        // reads — it self-corrects every 15s when the real on-chain values come back in.
+        clearInterval(rentalLiveTicker);
+        if (status === 1) {
+          const tickBaseline = {
+            startTime: Number(rental.startTime),
+            endTime: Number(rental.endTime),
+            rate: machine.pricePerHour,
+            originalDeposit: BigInt(rental.deposit) + paid,
+          };
+          const tickLive = () => {
+            if (!document.getElementById('rental-detail').classList.contains('active')) {
+              clearInterval(rentalLiveTicker);
+              return;
+            }
+            const nowSec = Math.floor(Date.now() / 1000);
+            const cappedNow = Math.min(nowSec, tickBaseline.endTime);
+            const elapsedSeconds = Math.max(0, cappedNow - tickBaseline.startTime);
+            const liveEarned = (BigInt(elapsedSeconds) * tickBaseline.rate) / 3600n;
+            const liveEscrow = tickBaseline.originalDeposit > liveEarned
+              ? tickBaseline.originalDeposit - liveEarned
+              : 0n;
+            const liveProgress = totalSeconds > 0 ? Math.min(100, (elapsedSeconds / totalSeconds) * 100) : 0;
+
+            const timeEl = document.getElementById('metricTimeRemaining');
+            const escrowEl = document.getElementById('metricEscrowLeft');
+            const paidEl = document.getElementById('metricPaidOut');
+            const fillEl = document.getElementById('uptimeProgressFill');
+            const textEl = document.getElementById('uptimeProgressText');
+            if (timeEl) timeEl.textContent = formatRemaining(tickBaseline.endTime);
+            if (escrowEl) escrowEl.textContent = trimEth(ethers.formatEther(liveEscrow));
+            if (paidEl) paidEl.textContent = trimEth(ethers.formatEther(liveEarned));
+            if (fillEl) fillEl.style.width = liveProgress + '%';
+            if (textEl) textEl.textContent = `${formatDuration(elapsedSeconds)} of ${formatDuration(totalSeconds)} paid out · ${liveProgress.toFixed(0)}%`;
+          };
+          tickLive();
+          rentalLiveTicker = setInterval(tickLive, 1000);
+        }
       } catch (err) {
         console.error(err);
         document.getElementById('rentalDetailInfo').innerHTML =
@@ -5742,6 +5808,8 @@
         renderActivityFeed(allMachines, allRentals);
 
         if (contract && userAddress) {
+          renderProviderRentalHistory(allMachines, allRentals);
+
           const stats = await contract.getProviderStats(userAddress);
           const pending = await contract.pendingWithdrawals(userAddress);
 
@@ -5801,14 +5869,14 @@
           });
         }
 
-        // Payments settle against verified hours — surface them once the rental has paid out
-        if (Number(r.hoursPaid) > 0 && machine) {
-          const paid = BigInt(r.hoursPaid) * machine.pricePerHour;
+        // Payments stream per verified second — surface them once the rental has paid out
+        if (Number(r.secondsPaid) > 0 && machine) {
+          const paid = (BigInt(r.secondsPaid) * machine.pricePerHour) / 3600n;
           items.push({
             at: Number(r.lastHealthCheck || r.startTime),
             kind: 'paid',
             icon: '&#128176;',
-            text: `<strong>${trimEth(ethers.formatEther(paid))} ETH</strong> released for ${r.hoursPaid} verified hour${Number(r.hoursPaid) === 1 ? '' : 's'}`,
+            text: `<strong>${trimEth(ethers.formatEther(paid))} ETH</strong> released for ${formatDuration(Number(r.secondsPaid))} verified`,
             meta: `Rental #${r.id} · ${status === 2 ? 'settled' : 'streaming'}`,
           });
         }
@@ -5831,6 +5899,49 @@
             </div>
           </div>
         `).join('');
+    }
+
+    // Every rental ever placed on a machine the connected wallet owns — who rented it, when,
+    // and how much has streamed to the provider so far. Unlike the network-wide activity feed
+    // above, this is scoped to just this provider's own machines and isn't capped to 8 rows.
+    function renderProviderRentalHistory(allMachines, allRentals) {
+      const container = document.getElementById('providerRentalHistory');
+      if (!container || !userAddress) return;
+
+      const myMachineIds = new Set(
+        allMachines.filter(m => m.owner.toLowerCase() === userAddress.toLowerCase()).map(m => Number(m.id))
+      );
+      const myRentals = allRentals
+        .filter(r => myMachineIds.has(Number(r.machineId)) && Number(r.startTime) > 0)
+        .sort((a, b) => Number(b.startTime) - Number(a.startTime));
+
+      if (myRentals.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding: 2rem;">No rentals on your machines yet</div>';
+        return;
+      }
+
+      container.innerHTML = myRentals.map(r => {
+        const machine = allMachines.find(m => Number(m.id) === Number(r.machineId));
+        const label = machine ? esc(machine.cpu) : `Machine #${r.machineId}`;
+        const paid = machine ? (BigInt(r.secondsPaid) * machine.pricePerHour) / 3600n : 0n;
+        const status = Number(r.status);
+        const startedAt = new Date(Number(r.startTime) * 1000).toLocaleString();
+
+        return `
+          <div class="activity-item" style="cursor:pointer" onclick="openRentalDetail(${r.id})">
+            <div class="activity-icon rented">&#128100;</div>
+            <div>
+              <div class="activity-text">
+                <strong>${shortAddr(r.renter)}</strong> rented <strong>${label}</strong>
+                · <span class="rental-status status-${STATUS_CLASSES[status]}" style="font-size:0.7rem">${STATUS_LABELS[status]}</span>
+              </div>
+              <div class="activity-meta">
+                Rental #${r.id} · started ${startedAt} · ${trimEth(ethers.formatEther(paid))} ETH paid so far
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     async function withdrawEarnings() {

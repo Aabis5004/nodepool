@@ -42,13 +42,14 @@ contract NodePool {
         address renter;
         uint256 deposit;
         uint256 startTime;
-        uint256 endTime;        // expected end (startTime + hours * 3600)
-        uint256 hoursPaid;      // hours paid to provider
-        uint256 hoursVerified;  // hours machine was online
-        uint256 totalHours;     // total hours requested
+        uint256 endTime;          // expected end (startTime + hours * 3600)
+        uint256 secondsPaid;      // seconds of verified online time paid to provider so far
+        uint256 secondsVerified;  // seconds machine was verified online (== secondsPaid; kept
+                                   // separate for clarity between "credited" and "paid")
+        uint256 totalHours;       // total hours requested (deposit/duration are still hour-priced)
         RentalStatus status;
-        uint256 lastHealthCheck;
-        string initialMessage;  // message from renter when requesting
+        uint256 lastHealthCheck;  // checkpoint reportUptime advances each call; never past endTime
+        string initialMessage;    // message from renter when requesting
     }
 
     struct Message {
@@ -129,7 +130,7 @@ contract NodePool {
     event RentalAccepted(uint256 indexed rentalId, uint256 startTime);
     event RentalDeclined(uint256 indexed rentalId);
     event RentalStarted(uint256 indexed rentalId);
-    event RentalEnded(uint256 indexed rentalId, uint256 hoursPaid, uint256 refund);
+    event RentalEnded(uint256 indexed rentalId, uint256 secondsPaid, uint256 refund);
     event RentalDisputed(uint256 indexed rentalId, string reason);
 
     event UptimeReported(uint256 indexed rentalId, bool isOnline, uint256 timestamp);
@@ -360,8 +361,8 @@ contract NodePool {
             deposit: msg.value,
             startTime: 0,  // Set when accepted
             endTime: 0,
-            hoursPaid: 0,
-            hoursVerified: 0,
+            secondsPaid: 0,
+            secondsVerified: 0,
             totalHours: rentalHours,
             status: RentalStatus.Requested,
             lastHealthCheck: 0,
@@ -439,45 +440,39 @@ contract NodePool {
 
         Machine storage machine = machines[rental.machineId];
 
-        // Calculate hours since last check
-        uint256 hoursSinceLastCheck = (block.timestamp - rental.lastHealthCheck) / 1 hours;
+        // Never credit time past the rental's paid end — this is what makes expiry correct: no
+        // matter how late a heartbeat lands, the checkpoint can't advance past endTime, so no
+        // window beyond the rental's paid duration is ever paid for.
+        uint256 nowCapped = block.timestamp > rental.endTime ? rental.endTime : block.timestamp;
+        uint256 elapsed = nowCapped > rental.lastHealthCheck ? nowCapped - rental.lastHealthCheck : 0;
 
-        if (hoursSinceLastCheck > 0) {
-            if (isOnline) {
-                // Never verify/pay for more hours than were actually rented. A late heartbeat
-                // (e.g. after a long gap) must not push hoursVerified past totalHours — capping
-                // here is what keeps the uptimeScore division below from ever underflowing.
-                uint256 remainingHours = rental.totalHours > rental.hoursVerified
-                    ? rental.totalHours - rental.hoursVerified
-                    : 0;
-                uint256 verifiedHours = hoursSinceLastCheck > remainingHours ? remainingHours : hoursSinceLastCheck;
+        if (elapsed > 0 && isOnline) {
+            rental.secondsVerified += elapsed;
 
-                if (verifiedHours > 0) {
-                    rental.hoursVerified += verifiedHours;
+            // Pay provider for every verified second, not whole hours - a machine that was
+            // online for 40 minutes gets paid for 40 minutes, not rounded down to zero.
+            uint256 payment = (elapsed * machine.pricePerHour) / 3600;
+            if (payment > rental.deposit) payment = rental.deposit; // defensive cap only
 
-                    // Pay provider for verified hours
-                    uint256 payment = verifiedHours * machine.pricePerHour;
-                    if (payment <= rental.deposit) {
-                        rental.deposit -= payment;
-                        rental.hoursPaid += verifiedHours;
-                        pendingWithdrawals[machine.owner] += payment;
-                        machine.totalEarnings += payment;
+            if (payment > 0) {
+                rental.deposit -= payment;
+                rental.secondsPaid += elapsed;
+                pendingWithdrawals[machine.owner] += payment;
+                machine.totalEarnings += payment;
 
-                        emit PaymentReleased(rentalId, machine.owner, payment);
-                    }
-                }
-            }
-
-            // Update uptime score (simple rolling average). hoursVerified is capped above and
-            // can never exceed totalHours, so this division can't underflow — belt and suspenders
-            // versus the capping: even a future change to hoursVerified elsewhere can't reintroduce
-            // the panic, since there's no `totalHours - hoursVerified` subtraction left here.
-            if (rental.totalHours > 0) {
-                machine.uptimeScore = (rental.hoursVerified * 10000) / rental.totalHours;
+                emit PaymentReleased(rentalId, machine.owner, payment);
             }
         }
 
-        rental.lastHealthCheck = block.timestamp;
+        // rental.lastHealthCheck always advances to nowCapped, whether this call reported
+        // online or offline. An offline call still closes off its window with zero credit -
+        // once earned, a payment already in pendingWithdrawals is never reversed by a later
+        // offline report, but no window can ever be paid for twice or credited retroactively.
+        rental.lastHealthCheck = nowCapped;
+
+        if (rental.totalHours > 0) {
+            machine.uptimeScore = (rental.secondsVerified * 10000) / (rental.totalHours * 3600);
+        }
         emit UptimeReported(rentalId, isOnline, block.timestamp);
 
         // Auto-end if past end time
@@ -507,15 +502,22 @@ contract NodePool {
     }
 
     /**
-     * @notice End a rental - settles payment and refunds remaining deposit
+     * @notice End a rental. The renter or machine owner may end it early at any time (e.g. the
+     *         renter is done, or the provider needs to reclaim the machine). Once the rental has
+     *         passed its paid endTime, ANYONE may call this to sweep it closed - this is what
+     *         guarantees a rental always settles even if the provider's agent goes offline right
+     *         at expiry and never gets to call reportUptime again. Either path pays out exactly
+     *         what reportUptime already streamed into pendingWithdrawals - this function only
+     *         refunds whatever of the deposit is left unearned.
      */
     function endRental(uint256 rentalId) external rentalExists(rentalId) {
         Rental storage rental = rentals[rentalId];
         require(rental.status == RentalStatus.Active, "Rental not active");
 
         Machine storage machine = machines[rental.machineId];
+        bool isPastEnd = block.timestamp >= rental.endTime;
         require(
-            msg.sender == rental.renter || msg.sender == machine.owner,
+            isPastEnd || msg.sender == rental.renter || msg.sender == machine.owner,
             "Not authorized"
         );
 
@@ -547,7 +549,7 @@ contract NodePool {
             require(success, "Refund failed");
         }
 
-        emit RentalEnded(rentalId, rental.hoursPaid, refund);
+        emit RentalEnded(rentalId, rental.secondsPaid, refund);
     }
 
     /**

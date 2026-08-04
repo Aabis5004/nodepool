@@ -21,7 +21,7 @@ const nacl = require('tweetnacl');
 
 const execFileAsync = promisify(execFile);
 
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0x54436C58A3671B24E9004858a55889C44585E7E5';
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0x2D16D7F81ac8a13b1A99E74dFDc94eb6107A8243';
 const RPC_URL = process.env.RPC_URL || 'https://base-sepolia-rpc.publicnode.com';
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 3939);
 
@@ -44,7 +44,7 @@ const RENTAL_STATUS_ACTIVE = 1; // RentalStatus.Active in NodePool.sol's enum
 // that's a browser-only, wallet-signed action now.
 const CONTRACT_ABI = [
   'function rentalCount() view returns (uint256)',
-  'function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 hoursPaid, uint256 hoursVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))',
+  'function getRental(uint256) view returns (tuple(uint256 id, uint256 machineId, address renter, uint256 deposit, uint256 startTime, uint256 endTime, uint256 secondsPaid, uint256 secondsVerified, uint256 totalHours, uint8 status, uint256 lastHealthCheck, string initialMessage))',
   'function reportUptime(uint256 rentalId, bool isOnline)',
   'function setMachineOnline(uint256 machineId, bool isOnline)',
   'function machineCount() view returns (uint256)',
@@ -472,8 +472,43 @@ async function runUptimeLoop(contract, machineId) {
 
   const tick = async () => {
     const healthy = await checkOwnHealth(HEALTH_PORT);
+
+    // Read active rentals regardless of health — needed either way: to report them OFFLINE
+    // below if unhealthy, or to report/provision them normally if healthy. Previously an
+    // unhealthy tick just returned here without calling reportUptime at all, which left the
+    // on-chain checkpoint frozen mid-rental; the next successful report would then credit the
+    // entire unhealthy gap as if the machine had stayed online the whole time.
+    let activeRentalIds = null;
+    try {
+      activeRentalIds = await findActiveRentalIds(contract, machineId);
+    } catch (err) {
+      console.log(`[${timestamp()}] Machine ${machineId} - couldn't read rentals: ${err.message}`);
+    }
+
+    // Tear down any previously-provisioned rental that's no longer active (ended, cancelled,
+    // disputed, or swept past expiry by someone else) — independent of local health, since a
+    // container/tunnel can and should be cleaned up even while the health server itself is down.
+    if (activeRentalIds) {
+      const activeSet = new Set(activeRentalIds);
+      for (const rentalId of Array.from(provisioned.keys())) {
+        if (!activeSet.has(rentalId)) await teardownRental(rentalId);
+      }
+    }
+
     if (!healthy) {
-      console.log(`[${timestamp()}] Machine ${machineId} - local health check failed, skipping this cycle`);
+      console.log(`[${timestamp()}] Machine ${machineId} - local health check failed`);
+      if (activeRentalIds) {
+        for (const rentalId of activeRentalIds) {
+          // Closes off the on-chain checkpoint at "now" with isOnline=false, so no window
+          // during this unhealthy stretch can ever be credited as paid time later.
+          const result = await reportUptimeForRental(contract, rentalId, false);
+          console.log(
+            result.ok
+              ? `[${timestamp()}] Machine ${machineId} unhealthy - reported rental ${rentalId} offline`
+              : `[${timestamp()}] Machine ${machineId} unhealthy - reporting rental ${rentalId} offline failed: ${result.reason}`
+          );
+        }
+      }
       return;
     }
 
@@ -485,20 +520,7 @@ async function runUptimeLoop(contract, machineId) {
       console.log(`[${timestamp()}] Machine ${machineId} - heartbeat failed: ${heartbeat.reason}`);
     }
 
-    let activeRentalIds;
-    try {
-      activeRentalIds = await findActiveRentalIds(contract, machineId);
-    } catch (err) {
-      console.log(`[${timestamp()}] Machine ${machineId} - couldn't read rentals: ${err.message}`);
-      return;
-    }
-
-    // Tear down any previously-provisioned rental that's no longer active (ended, cancelled,
-    // disputed) before anything else, regardless of whether the active list is now empty.
-    const activeSet = new Set(activeRentalIds);
-    for (const rentalId of Array.from(provisioned.keys())) {
-      if (!activeSet.has(rentalId)) await teardownRental(rentalId);
-    }
+    if (activeRentalIds === null) return; // couldn't read rentals this cycle - try again next tick
 
     if (activeRentalIds.length === 0) {
       console.log(`[${timestamp()}] Machine ${machineId} online - no active rentals`);
