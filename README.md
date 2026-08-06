@@ -129,27 +129,3 @@ The agent never uses your real wallet. It makes its own low-power device key tha
 A renter's SSH login is encrypted so only their wallet can read it. Their browser makes an encryption key from a wallet signature, and the agent encrypts the login to it. The ciphertext is public on-chain but useless to anyone but the renting wallet. Works with any wallet.
 
 The renter runs in a container with capped memory, CPU, and processes, and no access to your real files.
-
-## Deploy your own contract
-
-Only if you want a separate marketplace.
-
-    npm install
-    npx hardhat compile
-    npx hardhat run scripts/deploy.js --network baseSepolia
-
-The deployer wallet needs Base Sepolia ETH. After deploying, set the new address in frontend/index.html, agent/.env, and deployments.json so all three match. A fresh deploy starts empty.
-
-## Tools used
-
-- Base Sepolia, chain ID 84532
-- Solidity contract, built with Hardhat
-- Renter containers run linuxserver/openssh-server
-- Public access via ngrok TCP tunnels
-- Login encryption with tweetnacl (X25519 + Poly1305)
-
-## Known limitations
-
-The device wallet's gas is funded manually for now. One rental per machine at a time. ngrok's free tier has usage limits; a paid plan or another tunnel can be swapped in without code changes.
-ENDOFREADME
-echo "README written"; head -5 ~/hackathon/README.md</parameter>
