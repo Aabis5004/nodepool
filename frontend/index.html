@@ -20,6 +20,10 @@
        from a wallet signature (see deriveEncryptionKeypair()). Same package version the agent
        uses server-side, so both ends implement identical crypto. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl-fast.min.js"></script>
+  <!-- Manrope + DM Mono — scoped to the .np2 landing sections only (header/hero/features/
+       pricing/CTA/footer). The app tabs/dashboard/modals keep the existing Inter setup below. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -46,7 +50,38 @@
       --glow-blue: 0 0 32px rgba(59, 130, 246, 0.3);
       --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.9);
       --header-h: 72px;
+      --radius-sm: 10px;
       --radius: 16px;
+      --radius-lg: 24px;
+      /* Spacing scale — used to keep rhythm consistent across the app screens in Pass 2;
+         introduced now so both passes draw from the same system. */
+      --sp-1: 0.25rem;
+      --sp-2: 0.5rem;
+      --sp-3: 0.75rem;
+      --sp-4: 1rem;
+      --sp-5: 1.5rem;
+      --sp-6: 2rem;
+      --sp-7: 3rem;
+      --sp-8: 4rem;
+
+      /* np2 — reference-design tokens, scoped to the new landing sections only (header,
+         hero, features, pricing, CTA, footer) via the np2- class prefix below. Never used
+         as bare selectors, so the app tabs/dashboard/modals are unaffected. */
+      --np2-font-body: 'Manrope', Arial, sans-serif;
+      --np2-font-mono: 'DM Mono', monospace;
+      --np2-bg: #050509;
+      --np2-panel: #0c0d16;
+      --np2-panel-2: #10111c;
+      --np2-ink: #f4f5fb;
+      --np2-dim: #8a90ad;
+      --np2-faint: #565c78;
+      --np2-violet: #7c5cff;
+      --np2-violet-2: #9d7bff;
+      --np2-cyan: #22d3ee;
+      --np2-glow: rgba(124, 92, 255, .55);
+      --np2-line: rgba(150, 160, 220, .10);
+      --np2-card-border: rgba(150, 160, 220, .14);
+      --np2-green: #34d399;
     }
 
     * {
@@ -121,22 +156,35 @@
       background-clip: text;
     }
 
-    /* Header */
-    .header {
-      height: var(--header-h);
-      background: rgba(7, 10, 18, 0.72);
-      border-bottom: 1px solid var(--border-color);
-      padding: 0 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    /* np2 header — replaces the old .header/.header-nav rules below with the reference
+       design's header. #walletControls (rendered by renderWalletControls()) sits inside it
+       unchanged — only its container styling changes. */
+    .np2-header {
       position: sticky;
       top: 0;
       z-index: 200;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 16px 32px;
+      max-width: 1240px;
+      margin: 0 auto;
+      background: rgba(5, 5, 9, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-family: var(--np2-font-body);
     }
+    .np2-brand { display: flex; align-items: center; gap: 11px; text-decoration: none; color: var(--np2-ink); font-weight: 800; font-size: 19px; letter-spacing: -.02em; }
+    .np2-brand .np2-mk { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 26px; height: 26px; padding: 4px; border-radius: 8px; background: linear-gradient(135deg, var(--np2-violet), var(--np2-cyan)); box-shadow: 0 6px 18px rgba(124, 92, 255, .4); }
+    .np2-brand .np2-mk i { background: #fff; border-radius: 2px; }
+    .np2-nav { display: flex; gap: 28px; }
+    .np2-nav a { color: var(--np2-dim); text-decoration: none; font-size: 14px; font-weight: 500; transition: .2s; }
+    .np2-nav a:hover { color: var(--np2-ink); }
+    .np2-header .wallet-controls { font-family: var(--np2-font-body); }
 
+    /* Deprecated — kept only until the footer (still using .logo/.logo-icon/.logo-text
+       below) is migrated to the np2 design in a later step. */
     .logo {
       display: flex;
       align-items: center;
@@ -166,33 +214,6 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-
-    .header-nav {
-      display: flex;
-      gap: 2rem;
-      font-size: 0.9375rem;
-      color: var(--text-secondary);
-    }
-
-    .header-nav a {
-      transition: color 0.2s ease;
-      position: relative;
-    }
-
-    .header-nav a:hover { color: var(--text-primary); }
-
-    .header-nav a::after {
-      content: '';
-      position: absolute;
-      left: 0; right: 0; bottom: -6px;
-      height: 2px;
-      background: var(--accent-gradient);
-      border-radius: 2px;
-      transform: scaleX(0);
-      transition: transform 0.25s ease;
-    }
-
-    .header-nav a:hover::after { transform: scaleX(1); }
 
     .wallet-btn {
       background: var(--accent-gradient);
@@ -353,200 +374,57 @@
 
     .wallet-menu-copy:hover { text-decoration: underline; }
 
-    /* ============ HERO ============ */
-    .hero {
-      position: relative;
-      overflow: hidden;
-      padding: 7rem 2rem 6rem;
-      text-align: center;
-      isolation: isolate;
-    }
+    /* ============ np2 HERO (reference design) ============ */
+    .np2-hero { position: relative; max-width: 1200px; margin: 0 auto; padding: 70px 32px 0; text-align: center; font-family: var(--np2-font-body); color: var(--np2-ink); background: var(--np2-bg); }
+    .np2-hero::before { content: ""; position: absolute; top: 30px; left: 50%; transform: translateX(-50%); width: 900px; height: 520px; background: radial-gradient(ellipse at center, rgba(124,92,255,.22), transparent 60%); filter: blur(30px); z-index: 0; pointer-events: none; }
+    .np2-hero-inner { position: relative; z-index: 2; }
+    @keyframes np2FadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+    .np2-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-family: var(--np2-font-mono); font-size: 12px; color: var(--np2-dim); border: 1px solid var(--np2-card-border); background: var(--np2-panel); padding: 7px 14px; border-radius: 999px; margin-bottom: 24px; animation: np2FadeUp .6s cubic-bezier(.16,1,.3,1) both; }
+    .np2-eyebrow b { width: 7px; height: 7px; border-radius: 50%; background: var(--np2-green); box-shadow: 0 0 10px var(--np2-green); animation: pulse 2s infinite; }
+    .np2-hero h1 { font-size: clamp(40px,6.5vw,74px); font-weight: 800; letter-spacing: -.03em; line-height: 1.02; margin: 0 0 20px; animation: np2FadeUp .6s .08s cubic-bezier(.16,1,.3,1) both; }
+    .np2-hero h1 .g { background: linear-gradient(120deg, #c4b5fd, var(--np2-cyan)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .np2-hero p { color: var(--np2-dim); font-size: 18px; line-height: 1.55; max-width: 600px; margin: 0 auto 34px; animation: np2FadeUp .6s .16s cubic-bezier(.16,1,.3,1) both; }
+    .np2-get-btn { position: relative; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, var(--np2-violet), var(--np2-violet-2)); border: 0; color: #fff; padding: 16px 30px; border-radius: 14px; font-weight: 700; font-size: 16px; cursor: pointer; box-shadow: 0 12px 40px var(--np2-glow); transition: transform .2s, box-shadow .2s; font-family: var(--np2-font-body); animation: np2FadeUp .6s .24s cubic-bezier(.16,1,.3,1) both; }
+    .np2-get-btn:hover { transform: translateY(-2px); box-shadow: 0 16px 48px var(--np2-glow); }
+    .np2-get-btn svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .np2-beam { position: relative; height: 90px; margin-top: -6px; z-index: 1; }
+    .np2-beam::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 3px; height: 90px; background: linear-gradient(180deg, #fff, rgba(124,92,255,.6), transparent); box-shadow: 0 0 20px var(--np2-glow); animation: np2BeamGlow 3s ease-in-out infinite; }
+    .np2-beam::after { content: ""; position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 340px; height: 90px; background: radial-gradient(ellipse at top, rgba(196,181,253,.55), rgba(124,92,255,.15), transparent 70%); filter: blur(6px); animation: np2BeamPulse 3s ease-in-out infinite; }
+    @keyframes np2BeamPulse { 0%,100% { opacity: .7; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.08); } }
+    @keyframes np2BeamGlow { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
+    .np2-dash { position: relative; z-index: 2; max-width: 1080px; margin: 0 auto; background: linear-gradient(180deg, var(--np2-panel), #08090f); border: 1px solid var(--np2-card-border); border-radius: 20px 20px 0 0; box-shadow: 0 -10px 60px rgba(124,92,255,.18), 0 40px 100px rgba(0,0,0,.6); overflow: hidden; text-align: left; animation: np2FadeUp .7s .3s cubic-bezier(.16,1,.3,1) both; }
+    .np2-dash-top { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--np2-line); }
+    .np2-dash-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+    .np2-dash-logo { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, var(--np2-violet), var(--np2-cyan)); }
+    .np2-dash-pill { background: var(--np2-panel-2); border: 1px solid var(--np2-line); border-radius: 9px; padding: 7px 12px; font-size: 12px; color: var(--np2-dim); }
+    .np2-dash-body { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; padding: 22px; }
+    .np2-d-card { background: linear-gradient(180deg, var(--np2-panel-2), #0b0c14); border: 1px solid var(--np2-line); border-radius: 14px; padding: 18px; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+    .np2-d-card.np2-clickable { cursor: pointer; }
+    .np2-d-card.np2-clickable:hover { transform: translateY(-3px); border-color: rgba(124,92,255,.5); box-shadow: 0 12px 30px -10px rgba(124,92,255,.4); }
+    .np2-d-label { font-size: 12px; color: var(--np2-dim); margin-bottom: 8px; font-family: var(--np2-font-mono); text-transform: uppercase; letter-spacing: .5px; }
+    .np2-d-val { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+    .np2-d-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-left: 8px; padding: 2px 7px; border-radius: 6px; color: var(--np2-green); background: rgba(52,211,153,.12); }
+    .np2-d-muted { color: var(--np2-faint); font-family: var(--np2-font-mono); font-size: 12px; }
+    .np2-d-wide { grid-column: span 2; }
+    .np2-d-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--np2-line); font-size: 13px; }
+    .np2-d-row:last-child { border-bottom: none; }
+    .np2-d-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--np2-green); box-shadow: 0 0 8px var(--np2-green); display: inline-block; margin-right: 8px; }
+    .np2-mini-bars { display: flex; align-items: flex-end; gap: 5px; height: 56px; margin-top: 12px; }
+    .np2-mini-bars i { flex: 1; background: linear-gradient(180deg, var(--np2-violet), rgba(124,92,255,.2)); border-radius: 4px 4px 0 0; }
+    @media (max-width: 860px) { .np2-dash-body { grid-template-columns: 1fr; } .np2-d-wide { grid-column: span 1; } }
 
-    /* Animated gradient mesh */
-    .hero-bg {
-      position: absolute;
-      inset: -30% -10%;
-      z-index: -2;
-      background:
-        radial-gradient(42% 42% at 20% 30%, rgba(139, 92, 246, 0.40) 0%, transparent 65%),
-        radial-gradient(38% 38% at 78% 25%, rgba(59, 130, 246, 0.36) 0%, transparent 65%),
-        radial-gradient(45% 45% at 55% 78%, rgba(34, 211, 238, 0.20) 0%, transparent 65%);
-      filter: blur(20px);
-      animation: meshDrift 22s ease-in-out infinite alternate;
-    }
-
-    @keyframes meshDrift {
-      0%   { transform: translate3d(-3%, -2%, 0) scale(1); }
-      50%  { transform: translate3d(4%, 3%, 0) scale(1.12); }
-      100% { transform: translate3d(-2%, 4%, 0) scale(1.04); }
-    }
-
-    /* Grid overlay, faded out toward the edges */
-    .hero-grid {
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-      background-size: 56px 56px;
-      mask-image: radial-gradient(70% 60% at 50% 40%, #000 0%, transparent 100%);
-      -webkit-mask-image: radial-gradient(70% 60% at 50% 40%, #000 0%, transparent 100%);
-    }
-
-    /* Animated gradient border ring around the hero content.
-       @property lets the conic gradient's angle animate; browsers without it
-       simply render the gradient at its start angle, which still looks right. */
-    @property --hero-angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
-    }
-
-    .hero-frame {
-      position: relative;
-      max-width: 940px;
-      margin: 0 auto;
-      padding: 1px;
-      border-radius: 30px;
-      background: conic-gradient(
-        from var(--hero-angle),
-        rgba(139, 92, 246, 0.75) 0deg,
-        rgba(59, 130, 246, 0.55) 90deg,
-        rgba(34, 211, 238, 0.30) 165deg,
-        rgba(255, 255, 255, 0.06) 235deg,
-        rgba(139, 92, 246, 0.75) 360deg
-      );
-      animation: heroBorderSpin 9s linear infinite;
-    }
-
-    @keyframes heroBorderSpin {
-      to { --hero-angle: 360deg; }
-    }
-
-    /* Soft bloom that follows the same rotation, kept well behind the content */
-    .hero-frame::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: inherit;
-      background: inherit;
-      filter: blur(18px);
-      opacity: 0.35;
-      z-index: -1;
-    }
-
-    .hero-inner {
-      position: relative;
-      border-radius: 29px;
-      padding: 3.5rem 2.5rem 3rem;
-      background: linear-gradient(180deg, rgba(13, 18, 32, 0.82), rgba(7, 10, 18, 0.92));
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      padding: 0.45rem 1rem;
-      border-radius: 999px;
-      background: var(--bg-glass);
-      border: 1px solid var(--border-strong);
-      backdrop-filter: blur(10px);
-      font-size: 0.8125rem;
-      color: var(--text-secondary);
-      margin-bottom: 2rem;
-    }
-
-    .hero-badge .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 10px var(--success);
-      animation: pulse 2s infinite;
-    }
-
-    .hero h1 {
-      font-size: clamp(2.6rem, 7vw, 4.75rem);
-      line-height: 1.04;
-      font-weight: 800;
-      letter-spacing: -0.04em;
-      margin-bottom: 1.5rem;
-    }
-
-    .hero h1 .line-2 {
-      background: var(--accent-gradient-wide);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      background-size: 200% auto;
-      animation: shimmer 8s linear infinite;
-    }
-
-    @keyframes shimmer {
-      to { background-position: 200% center; }
-    }
-
-    .hero-sub {
-      font-size: clamp(1.05rem, 2vw, 1.3rem);
-      color: var(--text-secondary);
-      max-width: 640px;
-      margin: 0 auto 2.75rem;
-    }
-
-    .hero-cta {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .btn-hero {
-      position: relative;
-      padding: 1rem 2.25rem;
-      border-radius: 12px;
-      font-size: 1.0625rem;
-      font-weight: 650;
-      border: none;
-      cursor: pointer;
-      background: var(--accent-gradient);
-      color: #fff;
-      transition: transform 0.25s ease, box-shadow 0.25s ease;
-      box-shadow: 0 0 0 rgba(139, 92, 246, 0), 0 12px 32px -12px rgba(99, 102, 241, 0.9);
-      animation: ctaGlow 3.5s ease-in-out infinite;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
-    @keyframes ctaGlow {
-      0%, 100% { box-shadow: 0 0 22px rgba(139, 92, 246, 0.35), 0 12px 32px -12px rgba(99, 102, 241, 0.9); }
-      50%      { box-shadow: 0 0 46px rgba(139, 92, 246, 0.62), 0 12px 40px -12px rgba(59, 130, 246, 1); }
-    }
-
-    .btn-hero:hover { transform: translateY(-3px); }
-
-    .btn-hero-ghost {
-      background: var(--bg-glass);
-      border: 1px solid var(--border-strong);
-      backdrop-filter: blur(10px);
-      animation: none;
-      box-shadow: none;
-      color: var(--text-primary);
-    }
-
-    .btn-hero-ghost:hover {
-      border-color: var(--accent-purple);
-      box-shadow: var(--glow-purple);
-    }
-
-    .hero-note {
-      margin-top: 1.75rem;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
+    /* ============ HERO STAT POPUP ============ */
+    .np2-pop-overlay { position: fixed; inset: 0; background: rgba(3,4,10,.72); backdrop-filter: blur(4px); z-index: 999; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity .18s ease; }
+    .np2-pop-overlay.open { display: flex; opacity: 1; }
+    .np2-pop { width: min(360px, 88vw); background: linear-gradient(180deg, var(--np2-panel-2), #0a0b13); border: 1px solid var(--np2-card-border); border-radius: 16px; padding: 24px; font-family: var(--np2-font-body); color: var(--np2-ink); box-shadow: 0 30px 80px rgba(0,0,0,.6); transform: translateY(14px) scale(.96); opacity: 0; transition: transform .22s cubic-bezier(.16,1,.3,1), opacity .22s; }
+    .np2-pop-overlay.open .np2-pop { transform: translateY(0) scale(1); opacity: 1; }
+    .np2-pop-label { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--np2-dim); font-family: var(--np2-font-mono); }
+    .np2-pop-val { font-size: 36px; font-weight: 800; letter-spacing: -.02em; margin: 8px 0 14px; }
+    .np2-pop-body { font-size: 14px; color: var(--np2-dim); line-height: 1.6; }
+    .np2-pop-body strong { color: var(--np2-ink); }
+    .np2-pop-close { position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--np2-line); background: var(--np2-panel); color: var(--np2-dim); cursor: pointer; font-size: 16px; line-height: 1; }
+    .np2-pop-close:hover { color: var(--np2-ink); }
+    .np2-pop { position: relative; }
 
     /* ============ STATS BAR ============ */
     .stats-bar-wrap {
@@ -594,239 +472,117 @@
       margin-top: 0.35rem;
     }
 
-    /* ============ HOW IT WORKS ============ */
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.5rem;
-      position: relative;
-    }
+    /* ============ np2 FEATURES (bento — merges the old How-it-Works + Features) ============ */
+    .np2-wrap { max-width: 1200px; margin: 0 auto; padding: 100px 32px; font-family: var(--np2-font-body); color: var(--np2-ink); }
+    .np2-sec-head { text-align: center; margin-bottom: 56px; }
+    .np2-sec-head h2 { font-size: clamp(34px,5vw,56px); font-weight: 800; letter-spacing: -.03em; margin: 0 0 14px; line-height: 1.05; }
+    .np2-sec-head p { color: var(--np2-dim); font-size: 17px; margin: 0 auto; max-width: 560px; line-height: 1.5; }
+    .np2-bento { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+    .np2-bento-row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-top: 18px; }
+    .np2-tile { position: relative; background: linear-gradient(180deg, var(--np2-panel), var(--np2-panel-2)); border: 1px solid var(--np2-card-border); border-radius: 22px; padding: 30px; overflow: hidden; transition: transform .35s cubic-bezier(.16,1,.3,1), border-color .35s, box-shadow .35s; }
+    .np2-tile:hover { transform: translateY(-6px); border-color: rgba(124,92,255,.45); box-shadow: 0 24px 60px -20px rgba(124,92,255,.35); }
+    .np2-tile::after { content: ""; position: absolute; inset: 0; background: radial-gradient(220px circle at 50% 0%, rgba(124,92,255,.14), transparent 70%); opacity: 0; transition: opacity .4s; pointer-events: none; }
+    .np2-tile:hover::after { opacity: 1; }
+    .np2-tile h3 { font-size: 22px; font-weight: 700; margin: 0 0 8px; letter-spacing: -.01em; }
+    .np2-tile p { color: var(--np2-dim); font-size: 14.5px; line-height: 1.55; margin: 0; max-width: 340px; }
+    .np2-tile.np2-tall { min-height: 380px; display: flex; flex-direction: column; justify-content: flex-end; }
+    .np2-tile.np2-wide { min-height: 380px; }
+    .np2-tag { display: inline-block; font-family: var(--np2-font-mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--np2-violet-2); margin-bottom: 14px; text-shadow: 0 0 12px rgba(157,123,255,.5); }
+    @keyframes np2Float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    .np2-shield { animation: np2Float 4.5s ease-in-out infinite; }
+    .np2-orb-core { animation: np2CoreGlow 3s ease-in-out infinite, np2Float 5s ease-in-out infinite; }
+    .np2-sec-vis { position: absolute; top: -10px; left: 0; right: 0; height: 250px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .np2-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(124,92,255,.22); }
+    .np2-ring.a { width: 100px; height: 100px; animation: np2Ripple 3.2s ease-out infinite; }
+    .np2-ring.b { width: 180px; height: 180px; animation: np2Ripple 3.2s ease-out infinite .5s; }
+    .np2-ring.c { width: 260px; height: 260px; animation: np2Ripple 3.2s ease-out infinite 1s; }
+    .np2-ring.d { width: 340px; height: 340px; animation: np2Ripple 3.2s ease-out infinite 1.5s; }
+    @keyframes np2Ripple { 0% { opacity: .7; transform: scale(.7); } 100% { opacity: 0; transform: scale(1.15); } }
+    .np2-sweep { position: absolute; width: 300px; height: 300px; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0deg, rgba(124,92,255,.28) 40deg, transparent 80deg); animation: np2Spin 3.5s linear infinite; mask: radial-gradient(circle, transparent 30px, #000 32px); -webkit-mask: radial-gradient(circle, transparent 30px, #000 32px); }
+    .np2-shield { position: relative; z-index: 3; width: 72px; height: 72px; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #221d40, #0d0b1a); border: 1px solid rgba(124,92,255,.5); box-shadow: 0 0 50px var(--np2-glow); animation: np2Floaty 5s ease-in-out infinite; }
+    .np2-shield svg { width: 34px; height: 34px; stroke: #c4b5fd; fill: none; stroke-width: 1.6; }
+    @keyframes np2Floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+    @keyframes np2Spin { to { transform: rotate(360deg); } }
+    .np2-orbit-wrap, .np2-wallet-orbit-wrap { position: absolute; top: 14px; right: 6px; width: 280px; height: 250px; }
+    /* Real wallet brand marks, same orbit positions the old generic icon chips used */
+    .np2-wchip { position: absolute; width: 44px; height: 44px; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.6); }
+    .np2-wchip svg { width: 100%; height: 100%; display: block; }
+    .np2-spin-cw .np2-wchip { top: -22px; left: calc(50% - 22px); }
+    .np2-spin-cw .np2-wchip.p2 { top: calc(50% - 22px); left: -22px; }
+    .np2-spin-ccw .np2-wchip { top: -22px; left: calc(50% - 22px); width: 44px; height: 44px; }
+    .np2-orb-core { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 3; animation: np2CoreGlow 3s ease-in-out infinite; }
+    .np2-orb-core svg { width: 56px; height: 56px; filter: drop-shadow(0 0 14px var(--np2-glow)); }
+    @keyframes np2CoreGlow { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.12); } }
+    .np2-orb-ring { position: absolute; top: 50%; left: 50%; border: 1px solid var(--np2-line); border-radius: 50%; }
+    .np2-orb-ring.big { width: 220px; height: 220px; margin: -110px 0 0 -110px; }
+    .np2-orb-ring.mid { width: 140px; height: 140px; margin: -70px 0 0 -70px; }
+    .np2-spin-cw { position: absolute; top: 50%; left: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px; animation: np2Spin 16s linear infinite; }
+    .np2-spin-ccw { position: absolute; top: 50%; left: 50%; width: 140px; height: 140px; margin: -70px 0 0 -70px; animation: np2Spin 12s linear infinite reverse; }
+    .np2-chip { position: absolute; width: 36px; height: 36px; border-radius: 11px; background: linear-gradient(180deg, #14151f, #0c0d15); border: 1px solid var(--np2-card-border); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(0,0,0,.6); }
+    .np2-chip svg { width: 17px; height: 17px; stroke: var(--np2-violet-2); fill: none; stroke-width: 1.7; }
+    .np2-spin-cw .np2-chip { top: -18px; left: calc(50% - 18px); }
+    .np2-spin-cw .np2-chip.p2 { top: calc(50% - 18px); left: -18px; }
+    .np2-spin-cw .np2-chip.p3 { bottom: -18px; left: calc(50% - 18px); top: auto; }
+    .np2-spin-cw .np2-chip svg { animation: np2Spin 16s linear infinite reverse; }
+    .np2-spin-ccw .np2-chip { top: -16px; left: calc(50% - 16px); width: 32px; height: 32px; }
+    .np2-spin-ccw .np2-chip.q2 { top: calc(50% - 16px); right: -16px; left: auto; }
+    .np2-spin-ccw .np2-chip svg { animation: np2Spin 12s linear infinite; }
+    .np2-orbit-dot { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--np2-cyan); box-shadow: 0 0 12px var(--np2-cyan); offset-path: circle(110px at center); animation: np2Travel 6s linear infinite; }
+    @keyframes np2Travel { to { offset-distance: 100%; } }
+    .np2-chart-tile { min-height: 230px; position: relative; }
+    .np2-chart { position: absolute; inset: auto 0 0 0; height: 180px; }
+    .np2-chart svg { width: 100%; height: 100%; }
+    .np2-chart .np2-area { fill: url(#np2g); }
+    .np2-chart .np2-chartline { fill: none; stroke: url(#np2lg); stroke-width: 2.6; stroke-dasharray: 600; stroke-dashoffset: 600; animation: np2Draw 2.4s ease forwards; }
+    @keyframes np2Draw { to { stroke-dashoffset: 0; } }
+    .np2-chart .np2-chartdot { fill: #fff; filter: drop-shadow(0 0 10px var(--np2-glow)); }
+    .np2-bars rect { fill: rgba(124,92,255,.16); transform-origin: bottom; animation: np2Grow 1.6s ease forwards; }
+    .np2-bars rect:nth-child(1) { animation-delay: .1s; } .np2-bars rect:nth-child(2) { animation-delay: .25s; } .np2-bars rect:nth-child(3) { animation-delay: .4s; }
+    .np2-bars rect:nth-child(4) { animation-delay: .55s; } .np2-bars rect:nth-child(5) { animation-delay: .7s; } .np2-bars rect:nth-child(6) { animation-delay: .85s; }
+    @keyframes np2Grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
-    .step-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 2.25rem 1.75rem;
-      backdrop-filter: blur(12px);
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-    }
+    /* ============ np2 PRICING (fan cards + panel) ============ */
+    .np2-pricing-stage { position: relative; display: flex; justify-content: center; align-items: center; min-height: 520px; margin-top: 20px; }
+    .np2-fan-card { position: absolute; z-index: 1; width: 220px; height: 160px; border-radius: 20px; border: 1px solid var(--np2-card-border); background: linear-gradient(150deg, #15131f, #0a0b12); box-shadow: 0 30px 70px rgba(0,0,0,.55); transition: transform .4s cubic-bezier(.16,1,.3,1), z-index 0s; cursor: pointer; padding: 18px; }
+    .np2-fan-card .np2-fc-active { display: block; font-size: 11px; color: var(--np2-faint); font-family: var(--np2-font-mono); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+    .np2-fan-card .np2-fc-val { display: block; font-size: 30px; font-weight: 800; letter-spacing: -.02em; color: var(--np2-ink); margin-bottom: 4px; }
+    .np2-fan-card .np2-fc-num { display: block; font-size: 13px; color: var(--np2-dim); font-family: var(--np2-font-mono); }
+    .np2-fan-card .np2-fc-chip { position: absolute; top: 16px; right: 18px; width: 34px; height: 26px; border-radius: 6px; background: linear-gradient(135deg, rgba(124,92,255,.5), rgba(34,211,238,.3)); }
+    .np2-fan-l { transform: translateX(-230px) rotate(-12deg); }
+    .np2-fan-r { transform: translateX(230px) rotate(12deg); }
+    .np2-fan-card:hover { transform: translateX(-230px) rotate(-12deg) translateY(-8px); }
+    .np2-fan-r:hover { transform: translateX(230px) rotate(12deg) translateY(-8px); }
+    .np2-fan-card.np2-front { z-index: 4; transform: translateX(0) rotate(0deg) scale(1.05) !important; box-shadow: 0 40px 100px rgba(124,92,255,.35); }
+    @media (max-width: 980px) { .np2-fan-l { transform: translateX(-140px) rotate(-10deg); } .np2-fan-r { transform: translateX(140px) rotate(10deg); } }
+    .np2-price-panel { position: relative; z-index: 3; width: 380px; border-radius: 24px; padding: 34px; background: linear-gradient(180deg, #171526, #0c0d15); border: 1px solid rgba(124,92,255,.35); box-shadow: 0 40px 100px rgba(124,92,255,.25); font-family: var(--np2-font-body); color: var(--np2-ink); }
+    .np2-price-top { background: radial-gradient(ellipse at top, rgba(124,92,255,.4), transparent 70%); position: absolute; inset: 0 0 auto 0; height: 120px; border-radius: 24px 24px 0 0; pointer-events: none; }
+    .np2-price-panel .np2-amt { font-size: 46px; font-weight: 800; letter-spacing: -.03em; position: relative; }
+    .np2-price-panel .np2-amt small { font-size: 15px; color: var(--np2-dim); font-weight: 500; margin-left: 6px; }
+    .np2-price-panel .np2-price-sub { color: var(--np2-faint); font-size: 13px; margin: 2px 0 22px; font-family: var(--np2-font-mono); }
+    .np2-price-cta { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; background: linear-gradient(135deg, var(--np2-violet), var(--np2-violet-2)); border: 0; color: #fff; padding: 14px; border-radius: 13px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 12px 34px var(--np2-glow); transition: transform .2s; font-family: var(--np2-font-body); }
+    .np2-price-cta:hover { transform: translateY(-2px); }
+    .np2-price-cta svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .np2-incl { margin-top: 26px; }
+    .np2-incl-h { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+    .np2-incl-row { display: flex; align-items: center; gap: 11px; padding: 8px 0; font-size: 14px; color: var(--np2-dim); }
+    .np2-incl-row .np2-ck { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--np2-violet); display: flex; align-items: center; justify-content: center; }
+    .np2-incl-row .np2-ck svg { width: 11px; height: 11px; stroke: #fff; fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 
-    .step-card::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(70% 60% at 50% 0%, rgba(139, 92, 246, 0.14), transparent 70%);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
-    }
-
-    .step-card:hover {
-      transform: translateY(-6px);
-      border-color: rgba(139, 92, 246, 0.5);
-      box-shadow: var(--shadow-lg), var(--glow-purple);
-    }
-
-    .step-card:hover::after { opacity: 1; }
-
-    .step-num {
-      position: absolute;
-      top: 1.25rem;
-      right: 1.5rem;
-      font-size: 3.25rem;
-      font-weight: 800;
-      line-height: 1;
-      color: rgba(255, 255, 255, 0.05);
-      letter-spacing: -0.05em;
-    }
-
-    .step-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(59, 130, 246, 0.18));
-      border: 1px solid rgba(139, 92, 246, 0.35);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-      color: #c4b5fd;
-    }
-
-    .step-icon svg { width: 26px; height: 26px; }
-
-    .step-card h3 {
-      font-size: 1.1875rem;
-      font-weight: 650;
-      margin-bottom: 0.5rem;
-      letter-spacing: -0.015em;
-    }
-
-    .step-card p {
-      color: var(--text-secondary);
-      font-size: 0.9375rem;
-    }
-
-    .step-arrow {
-      position: absolute;
-      top: 50%;
-      right: -1.9rem;
-      transform: translateY(-50%);
-      color: var(--accent-purple);
-      opacity: 0.55;
-      z-index: 2;
-    }
-
-    .step-arrow svg { width: 22px; height: 22px; }
-
-    /* ============ FEATURES ============ */
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.25rem;
-    }
-
-    .feature-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius);
-      padding: 1.75rem;
-      backdrop-filter: blur(12px);
-      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-      position: relative;
-    }
-
-    .feature-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(99, 102, 241, 0.5);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .feature-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: var(--bg-glass);
-      border: 1px solid var(--border-strong);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.15rem;
-      color: #a5b4fc;
-    }
-
-    .feature-icon svg { width: 21px; height: 21px; }
-
-    .feature-card h3 {
-      font-size: 1.0625rem;
-      font-weight: 650;
-      margin-bottom: 0.4rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .feature-card p {
-      color: var(--text-secondary);
-      font-size: 0.9375rem;
-    }
-
-    .pill-soon {
-      font-size: 0.625rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 0.2rem 0.5rem;
-      border-radius: 999px;
-      color: var(--accent-cyan);
-      background: rgba(34, 211, 238, 0.12);
-      border: 1px solid rgba(34, 211, 238, 0.32);
-    }
-
-    /* ============ PRICING COMPARISON ============ */
-    .compare-wrap {
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      overflow: hidden;
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .compare-scroll { overflow-x: auto; }
-
-    .compare-table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 640px;
-    }
-
-    .compare-table th,
-    .compare-table td {
-      padding: 1.15rem 1.5rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.9375rem;
-      vertical-align: top;
-    }
-
-    .compare-table tr:last-child td { border-bottom: none; }
-
-    .compare-table thead th {
-      background: rgba(255, 255, 255, 0.03);
-      font-size: 1rem;
-      font-weight: 650;
-      letter-spacing: -0.01em;
-    }
-
-    .compare-table th:first-child {
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      font-weight: 600;
-      width: 24%;
-    }
-
-    .col-vps { color: var(--text-secondary); width: 38%; }
-
-    .col-np {
-      background: linear-gradient(180deg, rgba(139, 92, 246, 0.10), rgba(59, 130, 246, 0.05));
-      width: 38%;
-    }
-
-    .compare-table td.col-np { color: var(--text-primary); font-weight: 500; }
-
-    .compare-table td.row-label { color: var(--text-secondary); font-weight: 500; }
-
-    .th-np {
-      display: flex;
-      align-items: center;
-      gap: 0.55rem;
-    }
-
-    .mark {
-      display: inline-flex;
-      width: 18px;
-      height: 18px;
-      flex-shrink: 0;
-      margin-right: 0.55rem;
-      vertical-align: -3px;
-    }
-
-    .mark-bad { color: var(--error); }
-    .mark-good { color: var(--success); }
-
-    .compare-footnote {
-      padding: 1.25rem 1.5rem;
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text-muted);
-      font-size: 0.875rem;
-      border-top: 1px solid var(--border-color);
-    }
+    /* ============ np2 OVERVIEW ============ */
+    .np2-dash2 { display: grid; grid-template-columns: 210px 1fr; gap: 18px; margin-top: 8px; }
+    .np2-dash2-nav { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--np2-card-border); border-radius: 16px; background: linear-gradient(180deg, var(--np2-panel-2), #0a0b13); padding: 10px; }
+    .np2-ov-link { display: flex; align-items: center; gap: 10px; padding: 12px 12px; border-radius: 10px; color: var(--np2-dim); text-decoration: none; font-weight: 600; font-size: 14px; font-family: var(--np2-font-body); transition: background .2s ease, color .2s ease, transform .2s ease; }
+    .np2-ov-link:hover { background: rgba(124,92,255,.12); color: var(--np2-ink); transform: translateX(3px); }
+    .np2-ov-ic { font-size: 16px; color: var(--np2-violet-2); width: 18px; text-align: center; }
+    .np2-dash2-main { display: flex; flex-direction: column; gap: 16px; }
+    .np2-dash2-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .np2-ov-activity { border: 1px solid var(--np2-card-border); border-radius: 16px; background: linear-gradient(180deg, var(--np2-panel-2), #0a0b13); padding: 20px 22px; font-family: var(--np2-font-body); flex: 1; }
+    .np2-ov-activity-h { font-size: 13px; color: var(--np2-dim); font-family: var(--np2-font-mono); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+    @media (max-width: 860px) { .np2-dash2 { grid-template-columns: 1fr; } .np2-dash2-nav { flex-direction: row; flex-wrap: wrap; } .np2-dash2-stats { grid-template-columns: repeat(2, 1fr); } }
+    .np2-cta-row { margin-top: 36px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .np2-b-primary { display: inline-flex; align-items: center; gap: 9px; background: linear-gradient(135deg, var(--np2-violet), var(--np2-violet-2)); border: 0; color: #fff; padding: 15px 28px; border-radius: 13px; font-weight: 700; font-size: 15.5px; cursor: pointer; box-shadow: 0 12px 34px var(--np2-glow); font-family: var(--np2-font-body); }
+    .np2-b-ghost { background: rgba(255,255,255,.04); border: 1px solid var(--np2-card-border); color: var(--np2-ink); padding: 15px 28px; border-radius: 13px; font-weight: 600; font-size: 15.5px; cursor: pointer; font-family: var(--np2-font-body); }
+    @media (max-width: 860px) { .np2-fan-card { display: none; } .np2-price-panel { width: 100%; max-width: 380px; } }
 
     /* ============ APP SECTION ============ */
     .app-section {
@@ -1432,10 +1188,14 @@
     }
 
     .empty-state-icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      opacity: 0.5;
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1rem;
+      color: var(--text-muted);
+      opacity: 0.7;
     }
+
+    .empty-state-icon svg { width: 100%; height: 100%; }
 
     /* Toast Notifications */
     .toast-container {
@@ -1745,7 +1505,7 @@
 
     .metric-row {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
       margin: 1.25rem 0;
     }
@@ -1792,15 +1552,17 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.95rem;
       flex-shrink: 0;
       background: var(--bg-glass);
       border: 1px solid var(--border-color);
+      color: var(--text-secondary);
     }
 
-    .activity-icon.listed { border-color: var(--accent-purple); }
-    .activity-icon.rented { border-color: var(--accent-blue); }
-    .activity-icon.paid { border-color: var(--success); }
+    .activity-icon svg { width: 16px; height: 16px; }
+
+    .activity-icon.listed { border-color: var(--accent-purple); color: var(--accent-purple); }
+    .activity-icon.rented { border-color: var(--accent-blue); color: var(--accent-blue); }
+    .activity-icon.paid { border-color: var(--success); color: var(--success); }
 
     .activity-text { font-size: 0.9375rem; }
     .activity-meta { font-size: 0.8125rem; color: var(--text-muted); }
@@ -2178,22 +1940,20 @@
 
     /* Responsive */
     @media (max-width: 1024px) {
-      .steps { grid-template-columns: 1fr; }
-      .step-arrow { display: none; }
-      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .np2-bento { grid-template-columns: 1fr; }
+      .np2-bento-row2 { grid-template-columns: 1fr; }
       .footer-inner { grid-template-columns: 1fr 1fr; }
-      .header-nav { display: none; }
+      .np2-nav { display: none; }
     }
 
     @media (max-width: 768px) {
-      .header { padding: 0 1rem; }
+      .np2-header { padding: 12px 1rem; }
       .section { padding: 4rem 1.25rem; }
-      .hero { padding: 4.5rem 1.25rem 4rem; }
+      .np2-hero { padding: 4rem 1.25rem 0; }
       .stats-bar-wrap { padding: 0 1.25rem; }
       .stats-bar { grid-template-columns: repeat(2, 1fr); }
       .stats-bar-item:nth-child(2) { border-right: none; }
       .stats-bar-item:nth-child(-n+2) { border-bottom: 1px solid var(--border-color); }
-      .features-grid { grid-template-columns: 1fr; }
       .nav-tabs { padding: 0.6rem 1rem; }
       .app-intro { padding: 3rem 1.25rem 1rem; }
       .main-content { padding: 1.25rem; }
@@ -2206,13 +1966,11 @@
       .footer-inner { grid-template-columns: 1fr; gap: 2rem; }
       .toast-container { left: 1rem; right: 1rem; bottom: 1rem; }
       .toast { min-width: 0; max-width: none; }
-      .hero-inner { padding: 2.5rem 1.25rem 2.25rem; border-radius: 22px; }
-      .hero-frame { border-radius: 23px; }
     }
 
     /* 375px-class phones — the reference width for the mobile pass */
     @media (max-width: 480px) {
-      .header { padding: 0 0.85rem; gap: 0.5rem; }
+      .np2-header { padding: 12px 0.85rem; gap: 0.5rem; }
       .logo { font-size: 1.05rem; }
       .logo-icon { width: 32px; height: 32px; border-radius: 9px; }
       .logo-icon svg { width: 18px; height: 18px; }
@@ -2220,10 +1978,8 @@
       .wallet-btn-logout { padding: 0.55rem 0.7rem; }
       .wallet-controls { gap: 0.4rem; }
 
-      .hero { padding: 3rem 0.9rem 3rem; }
-      .hero-badge { font-size: 0.75rem; padding: 0.4rem 0.8rem; margin-bottom: 1.5rem; }
-      .hero-cta { flex-direction: column; }
-      .hero-cta .btn-hero { width: 100%; justify-content: center; padding: 0.9rem 1.25rem; }
+      .np2-hero { padding: 2.5rem 0.9rem 0; }
+      .np2-get-btn { width: 100%; justify-content: center; padding: 0.9rem 1.25rem; }
 
       .stats-bar-wrap { padding: 0 0.9rem; }
       .stats-bar-item { padding: 1.25rem 0.75rem; }
@@ -2274,15 +2030,10 @@
       html { scroll-behavior: auto; }
       .reveal { opacity: 1; transform: none; }
     }
-    /* Starfield */
-    .hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-      background-image:radial-gradient(1px 1px at 10% 20%,rgba(255,255,255,.5),transparent),radial-gradient(1px 1px at 30% 50%,rgba(255,255,255,.4),transparent),radial-gradient(1px 1px at 50% 70%,rgba(255,255,255,.35),transparent),radial-gradient(1px 1px at 70% 30%,rgba(255,255,255,.45),transparent),radial-gradient(1px 1px at 90% 60%,rgba(255,255,255,.3),transparent),radial-gradient(1px 1px at 15% 80%,rgba(255,255,255,.4),transparent),radial-gradient(1px 1px at 85% 15%,rgba(255,255,255,.35),transparent);
-      animation:twinkle 5s ease-in-out infinite}
-    @keyframes twinkle{50%{opacity:.4}}
     /* Mobile 375px */
     @media(max-width:375px){
-      .hero-inner h1{font-size:1.6rem}
-      .hero-inner p{font-size:.85rem}
+      .np2-hero h1{font-size:1.6rem}
+      .np2-hero p{font-size:.85rem}
       .stats-grid{grid-template-columns:1fr 1fr}
       .stat-value{font-size:1.5rem}
       .machine-grid{grid-template-columns:1fr}
@@ -2460,96 +2211,101 @@
       .tx-success-actions { flex-direction: column; }
     }
 
-    /* ============ RELAY.LINK VISUAL LANGUAGE ============
-       Sharp 14px corners instead of soft pills, generous padding, higher-contrast surfaces
-       and confident typography. Driven mostly off the tokens above so marketplace, rentals,
-       dashboard, wallet and every card/button inherit it without markup changes. */
+    /* ============ NP2 APP VISUAL SYNC ============
+       Brings the app screens (marketplace, my machines, rentals, dashboard, rental detail)
+       up to the landing's glassy violet/cyan system: compact, rounded, subtle glow on
+       hover, denser padding. Pure CSS — no markup/JS changes, same IDs/classes/data. */
 
-    /* Surfaces: sharper corners, more breathing room, cleaner depth */
     .card,
     .modal,
     .wallet-modal-card,
     .stat-card,
     .machine-card,
-    .rental-card,
-    .feature-card,
-    .step-card {
-      border-radius: 14px;
-      box-shadow: 0 8px 28px -12px rgba(0, 0, 0, 0.55);
-    }
-    .card, .machine-card, .rental-card { padding: 1.65rem; }
-    .modal { padding: 2rem; }
-
-    /* Higher-contrast edges so cards read as distinct panels, not washes */
-    .card, .stat-card, .feature-card, .step-card {
-      border-color: rgba(255, 255, 255, 0.12);
-      background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.012)), var(--bg-elevated);
-    }
-
-    /* Buttons: solid purple primary, light secondary, slight rounding */
-    .btn {
+    .rental-card {
       border-radius: 16px;
+      border-color: rgba(150, 160, 220, 0.14);
+      background: linear-gradient(180deg, rgba(150,160,220,0.05), rgba(10,11,19,0.4)), var(--bg-elevated);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.6);
+      transition: transform .25s cubic-bezier(.16,1,.3,1), border-color .25s ease, box-shadow .25s ease;
+    }
+    .card, .machine-card, .rental-card { padding: 1.25rem 1.35rem; }
+    .modal { padding: 1.75rem; }
+    .stat-card { padding: 1.4rem; }
+
+    .card:hover, .machine-card:hover, .rental-card:hover, .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(124, 92, 255, 0.5);
+      box-shadow: 0 16px 40px -14px rgba(124, 92, 255, 0.35);
+    }
+
+    /* Compact metric/stat boxes (rental detail ticker, dashboard) */
+    .metric {
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(150,160,220,0.06), rgba(10,11,19,0.3));
+      border: 1px solid rgba(150, 160, 220, 0.14);
+      padding: 0.75rem 0.85rem;
+      transition: border-color .25s ease, transform .25s ease;
+    }
+    .metric:hover { border-color: rgba(34, 211, 238, 0.4); transform: translateY(-2px); }
+    .metric-value { background: linear-gradient(120deg, #c4b5fd, #22d3ee); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+    /* Buttons: compact, violet/cyan accents, slight rounding */
+    .btn {
+      border-radius: 12px;
       font-weight: 600;
       letter-spacing: 0.005em;
-      padding: 0.78rem 1.4rem;
+      padding: 0.65rem 1.2rem;
+      font-size: 0.875rem;
     }
     .btn-primary {
-      background: var(--accent-gradient);
-      box-shadow: 0 8px 22px -8px rgba(112, 0, 255, 0.75);
+      background: linear-gradient(135deg, #7c5cff, #9d7bff);
+      box-shadow: 0 8px 22px -8px rgba(124, 92, 255, 0.75);
     }
     .btn-primary:hover:not(:disabled) {
-      box-shadow: 0 12px 30px -8px rgba(112, 0, 255, 0.9);
-      transform: translateY(-1px);
+      box-shadow: 0 12px 30px -8px rgba(124, 92, 255, 0.9);
+      transform: translateY(-2px);
     }
     .btn-secondary {
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(150, 160, 220, 0.07);
+      border: 1px solid rgba(150, 160, 220, 0.16);
       color: var(--text-primary);
     }
     .btn-secondary:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.11);
-      border-color: var(--accent-purple);
+      background: rgba(150, 160, 220, 0.12);
+      border-color: #7c5cff;
     }
 
-    /* Inputs echo the same sharpness */
-    .form-input, .form-select, .form-textarea { border-radius: 12px; }
+    /* Inputs echo the same rounding */
+    .form-input, .form-select, .form-textarea { border-radius: 10px; }
 
-    /* Typography: bolder, tighter, more confident */
+    /* Typography: tighter, more confident, compact */
     .section-title { font-weight: 800; letter-spacing: -0.025em; }
     .modal-title   { font-weight: 800; letter-spacing: -0.025em; }
-    .stat-value    { font-weight: 800; letter-spacing: -0.03em; }
+    .stat-value    { font-weight: 800; letter-spacing: -0.03em; background: linear-gradient(120deg, #c4b5fd, #22d3ee); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
     .spec-label    { letter-spacing: 0.01em; }
+    .price         { background: linear-gradient(120deg, #c4b5fd, #22d3ee); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 
-    /* Status pills / badges: sharper, denser */
+    /* Status pills / badges: compact, glowing */
     .status-pill, .rental-status, .os-badge, .uptime-badge { border-radius: 8px; font-weight: 700; }
+    .uptime-badge::before { box-shadow: 0 0 8px currentColor; }
 
     /* Toasts adopt the same corner language */
     .toast { border-radius: 14px; }
+
+
   </style>
 </head>
 <body>
   <!-- Header -->
-  <header class="header">
-    <a class="logo" href="#top">
-      <div class="logo-icon">
-        <!-- Node/network mark -->
-        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="2.4"/>
-          <circle cx="5" cy="5" r="2"/>
-          <circle cx="19" cy="5" r="2"/>
-          <circle cx="5" cy="19" r="2"/>
-          <circle cx="19" cy="19" r="2"/>
-          <path d="M6.5 6.5 10.2 10.2M17.5 6.5 13.8 10.2M6.5 17.5 10.2 13.8M17.5 17.5 13.8 13.8"/>
-        </svg>
-      </div>
-      <span class="logo-text">NodePool</span>
-    </a>
-    <nav class="header-nav">
-      <a href="#how">How it works</a>
+  <header class="np2-header">
+    <a href="#top" class="np2-brand"><span class="np2-mk"><i></i><i></i><i></i><i></i></span>NodePool</a>
+    <nav class="np2-nav">
       <a href="#features">Features</a>
       <a href="#pricing">Pricing</a>
-      <a href="#app">Marketplace</a>
+      <a href="#app" onclick="goToApp('marketplace')">Marketplace</a>
     </nav>
+    <!-- Real wallet control, unchanged — renderWalletControls() owns this div's innerHTML -->
     <div class="wallet-controls" id="walletControls">
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
     </div>
@@ -2586,36 +2342,38 @@
     </div>
   </div>
 
-  <!-- ================= HERO ================= -->
-  <section class="hero" id="top">
-    <div class="hero-bg"></div>
-    <div class="hero-grid"></div>
-    <div class="hero-frame">
-    <div class="hero-inner">
-      <div class="hero-badge">
-        <span class="dot"></span>
-        Live on Base Sepolia · Built for Rialo
-      </div>
-      <h1>
-        Decentralized<br>
-        <span class="line-2">Cloud Computing</span>
-      </h1>
-      <p class="hero-sub">
-        Rent compute. List your machine. Pay only for verified uptime. No middleman.
-      </p>
-      <div class="hero-cta">
-        <button class="btn-hero" onclick="goToApp('marketplace')">
-          Browse Machines
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </button>
-        <button class="btn-hero btn-hero-ghost" onclick="goToApp('my-machines')">
-          List Your Machine
-        </button>
-      </div>
-      <p class="hero-note">No account. No contracts. Settlement happens in the escrow contract itself.</p>
+  <!-- ================= HERO (np2) ================= -->
+  <section class="np2-hero" id="top">
+    <div class="np2-hero-inner">
+      <span class="np2-eyebrow"><b></b>Live on Base Sepolia</span>
+      <h1>Turn idle machines<br>into <span class="g">verified income</span></h1>
+      <p>Rent compute, or list your own. Paid per second, verified onchain.</p>
+      <button class="np2-get-btn" onclick="goToApp('marketplace')">Get Started <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
     </div>
+    <div class="np2-beam"></div>
+    <div class="np2-dash">
+      <div class="np2-dash-top">
+        <div class="np2-dash-brand"><span class="np2-dash-logo"></span> NodePool</div>
+        <div class="np2-dash-pill">Base Sepolia</div>
+      </div>
+      <div class="np2-dash-body">
+        <div class="np2-d-card np2-clickable" onclick="np2OpenStat('machines')"><div class="np2-d-label">Machines live</div><div class="np2-d-val" id="np2DashMachines">--</div></div>
+        <div class="np2-d-card np2-clickable" onclick="np2OpenStat('uptime')"><div class="np2-d-label">Avg verified uptime</div><div class="np2-d-val" id="np2DashUptime">--</div></div>
+        <div class="np2-d-card np2-clickable" onclick="np2OpenStat('cheapest')"><div class="np2-d-label">Cheapest / hour</div><div class="np2-d-val" id="np2DashCheapest">--</div></div>
+        <div class="np2-d-card np2-d-wide"><div class="np2-d-label">Network uptime</div><div class="np2-mini-bars" id="np2MiniBars"></div></div>
+        <div class="np2-d-card"><div class="np2-d-label">Recent activity</div><div id="np2Activity"><div class="np2-d-row"><span class="np2-d-muted">Loading…</span></div></div></div>
+      </div>
     </div>
   </section>
+
+  <div class="np2-pop-overlay" id="np2PopOverlay" onclick="if(event.target===this) np2CloseStat()">
+    <div class="np2-pop">
+      <button class="np2-pop-close" onclick="np2CloseStat()">&times;</button>
+      <div class="np2-pop-label" id="np2PopLabel">—</div>
+      <div class="np2-pop-val" id="np2PopVal">—</div>
+      <div class="np2-pop-body" id="np2PopBody"></div>
+    </div>
+  </div>
 
   <!-- ================= STATS BAR ================= -->
   <div class="stats-bar-wrap reveal">
@@ -2639,167 +2397,101 @@
     </div>
   </div>
 
-  <!-- ================= HOW IT WORKS ================= -->
-  <section class="section" id="how">
-    <div class="section-head-center reveal">
-      <span class="section-eyebrow">How it works</span>
-      <h2 class="section-heading">Three steps from idle PC to income</h2>
-      <p class="section-sub">The contract handles listing, escrow, health verification and settlement. There is no platform in between.</p>
-    </div>
-    <div class="steps">
-      <div class="step-card reveal">
-        <span class="step-num">01</span>
-        <div class="step-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 9h4M6 12h7"/>
-          </svg>
+  <!-- ================= FEATURES (np2 bento — merges How-it-Works + Features) ================= -->
+  <div class="np2-wrap" id="features">
+    <div class="np2-sec-head"><h2>Built for real compute</h2><p>Isolated access. Verified uptime. Settled by the contract.</p></div>
+    <div class="np2-bento">
+      <div class="np2-tile np2-tall reveal" data-stagger="160">
+        <div class="np2-sec-vis">
+          <span class="np2-ring a"></span><span class="np2-ring b"></span><span class="np2-ring c"></span><span class="np2-ring d"></span><span class="np2-sweep"></span>
+          <div class="np2-shield"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div>
         </div>
-        <h3>List Your Machine</h3>
-        <p>Publish CPU, RAM, storage, OS and an hourly price on-chain, then point the contract at your machine's <code>/health</code> endpoint.</p>
-        <div class="step-arrow">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </div>
+        <span class="np2-tag">Isolation</span><h3>Sandboxed by design</h3>
+        <p>A dropped-privilege container, no access to the host. Specs and price go on-chain, pointed at your machine's <code>/health</code> endpoint.</p>
       </div>
-      <div class="step-card reveal">
-        <span class="step-num">02</span>
-        <div class="step-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>
-          </svg>
+      <div class="np2-tile np2-wide reveal" data-stagger="160">
+        <span class="np2-tag">Access</span><h3>Rent from any wallet</h3><p>Connect MetaMask, Rabby, or OKX. No accounts, no logins.</p>
+        <div class="np2-wallet-orbit-wrap">
+          <div class="np2-orb-ring big"></div><div class="np2-orb-ring mid"></div><div class="np2-orbit-dot"></div>
+          <div class="np2-orb-core"><svg viewBox="0 0 56 56"><path d="M28 6l4.5 15L48 25.5 32.5 30 28 45l-4.5-15L8 25.5 23.5 21z" fill="url(#np2core)"/><defs><linearGradient id="np2core" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c4b5fd"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs></svg></div>
+          <div class="np2-spin-cw">
+            <div class="np2-wchip" title="MetaMask">
+              <svg viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#fff"/><path fill="#F6851B" d="M8 7 17 15h6L32 7l-4 14c0 8-5 13-8 15-3-2-8-7-8-15z"/><circle cx="16.5" cy="19" r="1.7" fill="#1a1a1a"/><circle cx="23.5" cy="19" r="1.7" fill="#1a1a1a"/></svg>
+            </div>
+            <div class="np2-wchip p2" title="Rabby">
+              <svg viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#8697FF"/><path fill="#fff" d="M12 21c0-5.5 4.3-10 9.5-10 4 0 7.5 2.7 8.9 6.5-.6-.3-1.3-.4-2-.4-3 0-5.5 2.3-5.7 5.3-.2 2.7 1.6 5 4.1 5.6-1.4 1.5-3.4 2.5-5.6 2.5-4.5-.1-8.2-4.2-9.2-9.5z"/></svg>
+            </div>
+          </div>
+          <div class="np2-spin-ccw">
+            <div class="np2-wchip" title="OKX">
+              <svg viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#000"/><rect x="6" y="6" width="9" height="9" fill="#fff"/><rect x="16.5" y="16.5" width="9" height="9" fill="#fff"/><rect x="27" y="6" width="9" height="9" fill="#fff"/><rect x="6" y="27" width="9" height="9" fill="#fff"/><rect x="27" y="27" width="9" height="9" fill="#fff"/></svg>
+            </div>
+          </div>
         </div>
-        <h3>Someone Rents It</h3>
-        <p>A renter picks their hours and deposits into escrow. You accept or decline in-app — chat is on-chain, so the negotiation is part of the record.</p>
-        <div class="step-arrow">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </div>
-      </div>
-      <div class="step-card reveal">
-        <span class="step-num">03</span>
-        <div class="step-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-          </svg>
-        </div>
-        <h3>Get Paid for Uptime</h3>
-        <p>Every hour your machine answers its health check, that hour's payment is released to you. Hours it was down are refunded to the renter.</p>
       </div>
     </div>
-  </section>
+    <div class="np2-bento-row2">
+      <div class="np2-tile reveal" data-stagger="160"><span class="np2-tag">Payment</span><h3>Pay per second</h3><p>Stop early, pay less. The rest refunds automatically.</p></div>
+      <div class="np2-tile reveal" data-stagger="160"><span class="np2-tag">Trust</span><h3>Verified onchain</h3><p>An agent proves uptime every 60 seconds. No self-reporting.</p></div>
+      <div class="np2-tile np2-chart-tile reveal" data-stagger="160"><span class="np2-tag">Uptime</span><h3>Proven, not promised</h3>
+        <div class="np2-chart"><svg viewBox="0 0 300 180" preserveAspectRatio="none"><defs><linearGradient id="np2g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c5cff" stop-opacity=".45"/><stop offset="1" stop-color="#7c5cff" stop-opacity="0"/></linearGradient><linearGradient id="np2lg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><g class="np2-bars"><rect x="20" y="90" width="18" height="90"/><rect x="66" y="70" width="18" height="110"/><rect x="112" y="100" width="18" height="80"/><rect x="158" y="55" width="18" height="125"/><rect x="204" y="40" width="18" height="140"/><rect x="250" y="25" width="18" height="155"/></g><path class="np2-area" d="M0,140 C40,128 60,96 100,100 C140,104 160,62 200,52 C240,44 270,30 300,22 L300,180 L0,180 Z"/><path class="np2-chartline" d="M0,140 C40,128 60,96 100,100 C140,104 160,62 200,52 C240,44 270,30 300,22"/><circle class="np2-chartdot" cx="300" cy="22" r="5"/></svg></div>
+      </div>
+    </div>
+  </div>
 
-  <!-- ================= FEATURES ================= -->
-  <section class="section" id="features">
-    <div class="section-head-center reveal">
-      <span class="section-eyebrow">Why NodePool</span>
-      <h2 class="section-heading">Infrastructure you don't have to trust</h2>
-      <p class="section-sub">Akash and Gensyn need massive infrastructure to run their marketplace. NodePool's smart contract <em>is</em> the infrastructure.</p>
-    </div>
-    <div class="features-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+  <!-- ================= PRICING (np2) ================= -->
+  <div class="np2-wrap" id="pricing">
+    <div class="np2-sec-head"><h2>Pay only for what runs</h2><p>No subscription. No platform fee. You pay the provider directly, per verified second of uptime.</p></div>
+    <div class="np2-pricing-stage">
+      <div class="np2-fan-card np2-fan-l" id="np2FanMachines" onclick="np2FanFront(this)"><span class="np2-fc-active">Active machines</span><span class="np2-fc-chip"></span><span class="np2-fc-val" id="np2FanMachinesVal">—</span><span class="np2-fc-num">listed right now</span></div>
+      <div class="np2-fan-card np2-fan-r" id="np2FanRentals" onclick="np2FanFront(this)"><span class="np2-fc-active">Total rentals</span><span class="np2-fc-chip"></span><span class="np2-fc-val" id="np2FanRentalsVal">—</span><span class="np2-fc-num">to date, onchain</span></div>
+      <div class="np2-price-panel">
+        <div class="np2-price-top"></div>
+        <div class="np2-amt"><span id="np2PriceAmt">—</span><small>ETH / hour</small></div>
+        <div class="np2-price-sub" id="np2PriceSub">from — set by each provider</div>
+        <button class="np2-price-cta" onclick="goToApp('marketplace')">Browse Machines <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <div class="np2-incl">
+          <div class="np2-incl-h">Every rental includes</div>
+          <div class="np2-incl-row"><span class="np2-ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Real SSH access to an isolated container</div>
+          <div class="np2-incl-row"><span class="np2-ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Credentials encrypted to your wallet</div>
+          <div class="np2-incl-row"><span class="np2-ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Per-second streaming settlement</div>
+          <div class="np2-incl-row"><span class="np2-ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Unused time refunded automatically</div>
+          <div class="np2-incl-row"><span class="np2-ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Escrow held by the contract, not us</div>
         </div>
-        <h3>Pay Only for Uptime</h3>
-        <p>Billing is per verified online hour — a machine that's down simply doesn't bill.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </div>
-        <h3>On-Chain Chat</h3>
-        <p>Negotiation, support and disputes live in the same contract as the money.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-        </div>
-        <h3>Instant Refunds</h3>
-        <p>End a rental and the unspent deposit returns in the same transaction. No tickets.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 6v6c0 5 3.8 9.2 9 10 5.2-.8 9-5 9-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
-        </div>
-        <h3>No Middleman</h3>
-        <p>Peer to peer. Escrow is the only intermediary, and it takes no margin.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-7 5 14L17.5 12H21"/></svg>
-        </div>
-        <h3>Health Monitoring</h3>
-        <p>Every check is reported on-chain, building an uptime score anyone can audit.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-9 12h7l-1 8 9-12h-7z"/></svg>
-        </div>
-        <h3>Rialo Native <span class="pill-soon">Coming soon</span></h3>
-        <p>On Rialo the contract makes the HTTPS health call itself — no keeper, no oracle.</p>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- ================= PRICING COMPARISON ================= -->
-  <section class="section" id="pricing">
-    <div class="section-head-center reveal">
-      <span class="section-eyebrow">Pricing</span>
-      <h2 class="section-heading">Traditional VPS bills the calendar.<br><span class="gradient-text">NodePool bills the uptime.</span></h2>
-      <p class="section-sub">Same machine, same hour — the difference is what happens when it goes down.</p>
-    </div>
-    <div class="compare-wrap reveal">
-      <div class="compare-scroll">
-        <table class="compare-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th class="col-vps">Traditional VPS</th>
-              <th class="col-np">
-                <span class="th-np">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="url(#g)" stroke-width="2"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
-                  NodePool
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="row-label">Billing model</td>
-              <td class="col-vps"><span class="mark mark-bad">✕</span>Flat monthly fee, paid upfront</td>
-              <td class="col-np"><span class="mark mark-good">✓</span>Per hour, only when verified online</td>
-            </tr>
-            <tr>
-              <td class="row-label">When it goes down</td>
-              <td class="col-vps"><span class="mark mark-bad">✕</span>You pay anyway — credits at their discretion</td>
-              <td class="col-np"><span class="mark mark-good">✓</span>Payment pauses that hour, automatically</td>
-            </tr>
-            <tr>
-              <td class="row-label">Refunds</td>
-              <td class="col-vps"><span class="mark mark-bad">✕</span>Support ticket, days of waiting</td>
-              <td class="col-np"><span class="mark mark-good">✓</span>Unused deposit returns on rental end</td>
-            </tr>
-            <tr>
-              <td class="row-label">Uptime proof</td>
-              <td class="col-vps"><span class="mark mark-bad">✕</span>Trust the vendor's status page</td>
-              <td class="col-np"><span class="mark mark-good">✓</span>Every health check recorded on-chain</td>
-            </tr>
-            <tr>
-              <td class="row-label">Commitment</td>
-              <td class="col-vps"><span class="mark mark-bad">✕</span>Monthly or annual lock-in</td>
-              <td class="col-np"><span class="mark mark-good">✓</span>End any time, settle instantly</td>
-            </tr>
-            <tr>
-              <td class="row-label">Who takes a cut</td>
-              <td class="col-vps"><span class="mark mark-bad">✕</span>The cloud provider's margin</td>
-              <td class="col-np"><span class="mark mark-good">✓</span>Nobody — provider and renter, direct</td>
-            </tr>
-          </tbody>
-        </table>
+  <!-- ================= OVERVIEW (np2) ================= -->
+  <div class="np2-wrap" id="np2-overview">
+    <div class="np2-sec-head"><h2>Everything, one place</h2><p>At a glance: your app, at a glance.</p></div>
+    <div class="np2-dash2">
+      <div class="np2-dash2-nav reveal">
+        <a class="np2-ov-link" href="#features"><span class="np2-ov-ic">✦</span><span>Features</span></a>
+        <a class="np2-ov-link" href="#app" onclick="goToApp('marketplace')"><span class="np2-ov-ic">⇢</span><span>Marketplace</span></a>
+        <a class="np2-ov-link" href="#app" onclick="goToApp('my-machines')"><span class="np2-ov-ic">▦</span><span>My Machines</span></a>
+        <a class="np2-ov-link" href="#app" onclick="goToApp('my-rentals')"><span class="np2-ov-ic">⇄</span><span>My Rentals</span></a>
+        <a class="np2-ov-link" href="#app" onclick="goToApp('dashboard')"><span class="np2-ov-ic">▤</span><span>Dashboard</span></a>
+        <a class="np2-ov-link" href="#app" onclick="goToApp('my-machines')"><span class="np2-ov-ic">+</span><span>Add Machine</span></a>
       </div>
-      <div class="compare-footnote">
-        Example: a 0.005 ETH/hr machine rented for 24 hours that drops offline for 3 hours settles at <strong>0.105 ETH</strong> — the 3 offline hours are refunded, not invoiced.
+      <div class="np2-dash2-main">
+        <div class="np2-dash2-stats">
+          <div class="np2-d-card reveal"><div class="np2-d-label">Machines live</div><div class="np2-d-val" id="np2OvMachines">--</div></div>
+          <div class="np2-d-card reveal"><div class="np2-d-label">Avg uptime</div><div class="np2-d-val" id="np2OvUptime">--</div></div>
+          <div class="np2-d-card reveal"><div class="np2-d-label">Cheapest / hr</div><div class="np2-d-val" id="np2OvCheapest">--</div></div>
+          <div class="np2-d-card reveal"><div class="np2-d-label">Active rentals</div><div class="np2-d-val" id="np2OvActiveRentals">--</div></div>
+        </div>
+        <div class="np2-ov-activity reveal">
+          <div class="np2-ov-activity-h">Recent activity</div>
+          <div id="np2OvActivity"><div class="np2-d-row"><span class="np2-d-muted">Loading…</span></div></div>
+        </div>
       </div>
     </div>
-  </section>
+    <div class="np2-cta-row">
+      <button class="np2-b-primary" onclick="goToApp('my-machines')">List Your Machine <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <button class="np2-b-ghost" onclick="goToApp('marketplace')">Browse Machines</button>
+    </div>
+  </div>
 
   <!-- ================= APP (marketplace / rentals / chat) ================= -->
   <section class="app-section" id="app">
@@ -2924,19 +2616,19 @@
           <h2 class="section-title">Dashboard</h2>
         </div>
         <div class="stats-grid">
-          <div class="card stat-card">
+          <div class="card stat-card reveal" data-stagger="90">
             <div class="stat-value" id="statMachines">0</div>
             <div class="stat-label">Available Machines</div>
           </div>
-          <div class="card stat-card">
+          <div class="card stat-card reveal" data-stagger="90">
             <div class="stat-value" id="statRentals">0</div>
             <div class="stat-label">Active Rentals</div>
           </div>
-          <div class="card stat-card">
+          <div class="card stat-card reveal" data-stagger="90">
             <div class="stat-value" id="statUptime">0%</div>
             <div class="stat-label">Avg Uptime</div>
           </div>
-          <div class="card stat-card">
+          <div class="card stat-card reveal" data-stagger="90">
             <div class="stat-value" id="statEarnings">0</div>
             <div class="stat-label">Your Earnings (ETH)</div>
           </div>
@@ -2993,11 +2685,6 @@
           </div>
           <span class="logo-text">NodePool</span>
         </div>
-        <p>A peer-to-peer compute marketplace where the escrow contract — not a company — verifies uptime and releases payment.</p>
-        <span class="footer-tag">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-9 12h7l-1 8 9-12h-7z"/></svg>
-          Built for the Rialo ecosystem
-        </span>
       </div>
       <div class="footer-col">
         <h4>Product</h4>
@@ -3011,9 +2698,8 @@
       <div class="footer-col">
         <h4>Learn</h4>
         <ul>
-          <li><a href="#how">How it works</a></li>
           <li><a href="#features">Features</a></li>
-          <li><a href="#pricing">Pricing model</a></li>
+          <li><a href="#pricing">Pricing</a></li>
           <li><a href="#app" onclick="goToApp('my-rentals')">On-chain chat</a></li>
         </ul>
       </div>
@@ -3023,13 +2709,8 @@
           <li><a id="footerContractLink" href="https://sepolia.basescan.org" target="_blank" rel="noopener">Contract on BaseScan</a></li>
           <li><a href="https://sepolia.base.org" target="_blank" rel="noopener">Base Sepolia RPC</a></li>
           <li><a href="https://www.alchemy.com/faucets/base-sepolia" target="_blank" rel="noopener">Testnet faucet</a></li>
-          <li><a href="#top">Rialo mainnet — soon</a></li>
         </ul>
       </div>
-    </div>
-    <div class="footer-bottom">
-      <span>© 2026 NodePool — hackathon build, testnet only.</span>
-      <span class="footer-addr" id="footerAddress"></span>
     </div>
   </footer>
 
@@ -3163,8 +2844,7 @@
       </div>
       <form onsubmit="submitAuthorizeReporter(event)" novalidate>
         <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9375rem;">
-          Paste the device address printed by the NodePool agent for Machine <strong id="authMachineId">#—</strong>.
-          It can only report uptime for this machine — it can never withdraw funds, delist, or change price.
+          Device address for Machine <strong id="authMachineId">#—</strong>. Can only report uptime, nothing else.
         </p>
         <div class="form-group">
           <label class="form-label">Device Address</label>
@@ -3419,7 +3099,8 @@
           if (!entry.isIntersecting) return;
           // Stagger siblings slightly so grids cascade instead of popping at once
           const siblings = Array.from(entry.target.parentElement.children).filter(el => el.classList.contains('reveal'));
-          const delay = Math.max(0, siblings.indexOf(entry.target)) * 90;
+          const step = Number(entry.target.dataset.stagger) || 90;
+          const delay = Math.max(0, siblings.indexOf(entry.target)) * step;
           setTimeout(() => entry.target.classList.add('visible'), delay);
           observer.unobserve(entry.target);
         });
@@ -3465,9 +3146,9 @@
     }
 
     function initFooterLinks() {
+      // Links to the contract on BaseScan — the address itself is never shown as page text.
       const link = document.getElementById('footerContractLink');
       link.href = `${EXPLORER_URL}/address/${CONTRACT_ADDRESS}`;
-      document.getElementById('footerAddress').textContent = CONTRACT_ADDRESS;
     }
 
     // Count-up animation for the hero stats bar
@@ -3484,6 +3165,10 @@
     }
 
     // Hero stats come straight from the contract — machine count, cheapest price, avg uptime
+    // Cached from loadLandingStats() so the stat popups and Section 4 overview can render
+    // real detail without firing extra RPC calls.
+    const np2Cache = { live: [], all: [], rentals: [], activeRentals: 0, avgUptimePct: null, cheapestWei: null, events: [] };
+
     async function loadLandingStats() {
       try {
         const c = getReader();
@@ -3501,24 +3186,168 @@
           v => Math.round(v).toString()
         );
 
-        if (live.length > 0) {
-          const cheapest = live.reduce((min, m) => (m.pricePerHour < min ? m.pricePerHour : min), live[0].pricePerHour);
-          document.getElementById('heroStatCheapest').textContent = `${trimEth(ethers.formatEther(cheapest))} ETH`;
+        let cheapestWei = null;
+        let avgUptimePct = null;
 
-          const avg = live.reduce((sum, m) => sum + Number(m.uptimeScore), 0) / live.length / 100;
+        if (live.length > 0) {
+          cheapestWei = live.reduce((min, m) => (m.pricePerHour < min ? m.pricePerHour : min), live[0].pricePerHour);
+          document.getElementById('heroStatCheapest').textContent = `${trimEth(ethers.formatEther(cheapestWei))} ETH`;
+
+          avgUptimePct = live.reduce((sum, m) => sum + Number(m.uptimeScore), 0) / live.length / 100;
           animateNumber(
             document.getElementById('heroStatUptime'),
-            avg,
+            avgUptimePct,
             v => v.toFixed(1) + '%'
           );
         } else {
           document.getElementById('heroStatCheapest').textContent = '—';
           document.getElementById('heroStatUptime').textContent = '—';
         }
+
+        // Rentals — needed both for the active-rental count and, below, to derive the hero
+        // mockup's "Recent activity" feed. Same state-derived approach renderActivityFeed()
+        // already uses for the Dashboard tab (timestamps already on the structs) rather than
+        // eth_getLogs, since public RPCs cap historical log range.
+        let rentals = [];
+        try {
+          const rentalCount = Number(await c.rentalCount());
+          rentals = (await Promise.all(
+            Array.from({ length: rentalCount }, (_, i) => c.getRental(i + 1).catch(() => null))
+          )).filter(Boolean);
+        } catch (e) {
+          console.error('Rentals unavailable:', e);
+        }
+        const activeRentals = rentals.filter(r => Number(r.status) === 1).length;
+        np2Cache.live = live;
+        np2Cache.all = all;
+        np2Cache.rentals = rentals;
+        np2Cache.activeRentals = activeRentals;
+        np2Cache.avgUptimePct = avgUptimePct;
+        np2Cache.cheapestWei = cheapestWei;
+
+        // np2 hero dashboard mockup — real values, not the reference's placeholders
+        const machinesEl = document.getElementById('np2DashMachines');
+        const uptimeEl = document.getElementById('np2DashUptime');
+        const cheapestEl = document.getElementById('np2DashCheapest');
+        if (machinesEl) machinesEl.textContent = live.length.toString();
+        if (uptimeEl) uptimeEl.textContent = avgUptimePct != null ? avgUptimePct.toFixed(1) + '%' : '—';
+        if (cheapestEl) cheapestEl.textContent = cheapestWei != null ? trimEth(ethers.formatEther(cheapestWei)) : '—';
+
+        // np2 pricing panel + fan card — same real cheapest price and uptime, or an honest
+        // fallback when nothing's listed yet (never a fake number).
+        const priceAmtEl = document.getElementById('np2PriceAmt');
+        const priceSubEl = document.getElementById('np2PriceSub');
+        if (cheapestWei != null) {
+          if (priceAmtEl) priceAmtEl.textContent = trimEth(ethers.formatEther(cheapestWei));
+          if (priceSubEl) priceSubEl.textContent = 'cheapest listed machine right now';
+        } else {
+          if (priceAmtEl) priceAmtEl.textContent = '0.001';
+          if (priceSubEl) priceSubEl.textContent = 'example — set by each provider';
+        }
+        const fanMachinesEl = document.getElementById('np2FanMachinesVal');
+        const fanRentalsEl = document.getElementById('np2FanRentalsVal');
+        if (fanMachinesEl) fanMachinesEl.textContent = live.length.toString();
+        if (fanRentalsEl) fanRentalsEl.textContent = rentals.length.toString();
+
+        // np2 overview dashboard — same real numbers, reused, no extra RPC calls
+        const ovMachinesEl = document.getElementById('np2OvMachines');
+        const ovUptimeEl = document.getElementById('np2OvUptime');
+        const ovCheapestEl = document.getElementById('np2OvCheapest');
+        const ovActiveEl = document.getElementById('np2OvActiveRentals');
+        if (ovMachinesEl) ovMachinesEl.textContent = live.length.toString();
+        if (ovUptimeEl) ovUptimeEl.textContent = avgUptimePct != null ? avgUptimePct.toFixed(1) + '%' : '—';
+        if (ovCheapestEl) ovCheapestEl.textContent = cheapestWei != null ? trimEth(ethers.formatEther(cheapestWei)) : '—';
+        if (ovActiveEl) ovActiveEl.textContent = activeRentals.toString();
+
+        // Mini bar chart — decorative, but every bar reflects the one real number we have
+        // (network avg uptime) rather than invented per-period figures.
+        const barsEl = document.getElementById('np2MiniBars');
+        if (barsEl) {
+          const h = avgUptimePct != null ? Math.max(6, Math.min(100, avgUptimePct)) : 6;
+          barsEl.innerHTML = Array.from({ length: 10 }, () => `<i style="height:${h}%"></i>`).join('');
+        }
+
+        // Recent activity — derived from real machine/rental state: listings (createdAt),
+        // rentals starting (startTime), and payments settling (secondsPaid + lastHealthCheck).
+        // Same derivation renderActivityFeed() uses for the Dashboard tab, just top-3 here.
+        const activityEl = document.getElementById('np2Activity');
+        if (activityEl) {
+          const events = [];
+          for (const m of all) {
+            if (m && Number(m.createdAt) > 0) {
+              events.push({ at: Number(m.createdAt), text: 'Machine listed' });
+            }
+          }
+          for (const r of rentals) {
+            if (Number(r.startTime) > 0) {
+              events.push({ at: Number(r.startTime), text: 'Rental started' });
+            }
+            if (Number(r.secondsPaid) > 0) {
+              events.push({ at: Number(r.lastHealthCheck || r.startTime), text: 'Payment settled' });
+            }
+          }
+          events.sort((a, b) => b.at - a.at);
+          np2Cache.events = events;
+          const top3 = events.slice(0, 3);
+          activityEl.innerHTML = top3.length > 0
+            ? top3.map(e => `<div class="np2-d-row"><span><span class="np2-d-dot"></span>${esc(e.text)}</span><span class="np2-d-muted">${timeAgo(e.at)}</span></div>`).join('')
+            : `<div class="np2-d-row"><span class="np2-d-muted">No activity yet</span></div>`;
+
+          const ovActivityEl = document.getElementById('np2OvActivity');
+          if (ovActivityEl) {
+            const top5 = events.slice(0, 5);
+            ovActivityEl.innerHTML = top5.length > 0
+              ? top5.map(e => `<div class="np2-d-row"><span><span class="np2-d-dot"></span>${esc(e.text)}</span><span class="np2-d-muted">${timeAgo(e.at)}</span></div>`).join('')
+              : `<div class="np2-d-row"><span class="np2-d-muted">No activity yet</span></div>`;
+          }
+        }
       } catch (err) {
         // Keep the placeholder values rather than showing a broken bar
         console.error('Landing stats unavailable:', err);
       }
+    }
+
+    // Pricing fan cards — click brings the tapped card to the front; clicking again (or
+    // tapping the other card) returns it to its fanned position.
+    function np2FanFront(el) {
+      const isFront = el.classList.contains('np2-front');
+      document.querySelectorAll('.np2-fan-card').forEach(c => c.classList.remove('np2-front'));
+      if (!isFront) el.classList.add('np2-front');
+    }
+
+    // Hero mockup stat popups — real detail pulled from np2Cache (already fetched by
+    // loadLandingStats()), never a fresh RPC call, never invented numbers.
+    function np2OpenStat(kind) {
+      const overlay = document.getElementById('np2PopOverlay');
+      const labelEl = document.getElementById('np2PopLabel');
+      const valEl = document.getElementById('np2PopVal');
+      const bodyEl = document.getElementById('np2PopBody');
+      if (!overlay) return;
+
+      if (kind === 'machines') {
+        labelEl.textContent = 'Machines live';
+        valEl.textContent = np2Cache.live.length.toString();
+        const total = np2Cache.all.length;
+        bodyEl.innerHTML = `<strong>${np2Cache.live.length}</strong> of <strong>${total}</strong> registered machine${total === 1 ? '' : 's'} currently listed and available to rent. <strong>${np2Cache.activeRentals}</strong> rental${np2Cache.activeRentals === 1 ? ' is' : 's are'} active right now.`;
+      } else if (kind === 'uptime') {
+        labelEl.textContent = 'Avg verified uptime';
+        valEl.textContent = np2Cache.avgUptimePct != null ? np2Cache.avgUptimePct.toFixed(1) + '%' : '—';
+        bodyEl.innerHTML = np2Cache.avgUptimePct != null
+          ? `Average of the onchain <strong>uptimeScore</strong> across all <strong>${np2Cache.live.length}</strong> live machines. Each score updates when a machine's health-check agent reports in.`
+          : `No live machines yet — uptime has nothing to average.`;
+      } else if (kind === 'cheapest') {
+        labelEl.textContent = 'Cheapest / hour';
+        valEl.textContent = np2Cache.cheapestWei != null ? `${trimEth(ethers.formatEther(np2Cache.cheapestWei))} ETH` : '—';
+        bodyEl.innerHTML = np2Cache.cheapestWei != null
+          ? `The lowest <strong>pricePerHour</strong> among all currently listed machines. Set directly by the provider, paid per second.`
+          : `No machines listed yet — nothing to compare.`;
+      }
+
+      overlay.classList.add('open');
+    }
+    function np2CloseStat() {
+      const overlay = document.getElementById('np2PopOverlay');
+      if (overlay) overlay.classList.remove('open');
     }
 
     // 0.0030000 -> 0.003
@@ -4707,7 +4536,7 @@
           </div>
           ${showRentBtn && !live ? `
             <div class="form-hint" style="color: var(--warning); margin-top: 0.35rem;">
-              Provider's agent is offline — can't be rented until it reconnects.
+              Offline. Can't rent right now.
             </div>` : ''}
           <div class="machine-footer">
             <div>
@@ -4835,7 +4664,7 @@
       if (filtered.length === 0 && machines.length > 0) {
         grid.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">&#128269;</div>
+            <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></div>
             <p>No machines match your filters</p>
             <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
           </div>
@@ -5349,7 +5178,7 @@
         if (userRentals.length === 0) {
           rentalsList.innerHTML = `
             <div class="empty-state">
-              <div class="empty-state-icon">&#128203;</div>
+              <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v2h6V3M8 10h8M8 14h5"/></svg></div>
               <p>No rentals yet</p>
               <button class="btn btn-primary" onclick="switchTab('marketplace')">Browse Machines</button>
             </div>
@@ -5586,7 +5415,7 @@
                 <div class="metric-label">Paid out (ETH)</div>
               </div>
             </div>
-            ${status === 1 ? `<div class="form-hint" style="margin-top:0.35rem">Paid out and time remaining update live, assuming the machine stays online — they resync from the blockchain every 15 seconds.</div>` : ''}
+            ${status === 1 ? `<div class="form-hint" style="margin-top:0.35rem">Updates live. Syncs onchain every 15s.</div>` : ''}
 
             ${rental.initialMessage ? `
               <div class="preview-wrap" style="margin-top: 0;">
@@ -5601,8 +5430,8 @@
                 <div id="sshAccessPanel">
                   ${sshCredsAvailable
                     ? `<button class="btn btn-secondary" onclick="showSshAccess(${rentalId})">Show SSH Access</button>
-                       <p class="form-hint" style="margin-top:0.5rem">Decrypted locally with a key only your wallet can reproduce — nobody else can read this, including us.</p>`
-                    : `<p class="form-hint" style="margin:0">Provisioning your container — this can take a minute after the provider accepts. Refresh to check again.</p>`}
+                       <p class="form-hint" style="margin-top:0.5rem">Decrypted locally. Only your wallet can read this.</p>`
+                    : `<p class="form-hint" style="margin:0">Provisioning container. Refresh in a minute.</p>`}
                 </div>
               </div>
             ` : ''}
@@ -5855,7 +5684,7 @@
         items.push({
           at: Number(m.createdAt),
           kind: 'listed',
-          icon: '&#128421;',
+          icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
           text: `<strong>${esc(m.cpu)}</strong> listed at ${ethers.formatEther(m.pricePerHour)} ETH/hr`,
           meta: `Machine #${m.id} · ${shortAddr(m.owner)}`,
         });
@@ -5870,7 +5699,7 @@
           items.push({
             at: Number(r.startTime),
             kind: 'rented',
-            icon: '&#9889;',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>',
             text: `<strong>${label}</strong> rented for ${r.totalHours}h`,
             meta: `Rental #${r.id} · ${shortAddr(r.renter)}`,
           });
@@ -5882,7 +5711,7 @@
           items.push({
             at: Number(r.lastHealthCheck || r.startTime),
             kind: 'paid',
-            icon: '&#128176;',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5a2.5 2.5 0 0 1 2.5-1h.5a2 2 0 1 1 0 4h-1a2 2 0 1 0 0 4h.5a2.5 2.5 0 0 0 2.5-1"/></svg>',
             text: `<strong>${trimEth(ethers.formatEther(paid))} ETH</strong> released for ${formatDuration(Number(r.secondsPaid))} verified`,
             meta: `Rental #${r.id} · ${status === 2 ? 'settled' : 'streaming'}`,
           });
@@ -5936,7 +5765,7 @@
 
         return `
           <div class="activity-item" style="cursor:pointer" onclick="openRentalDetail(${r.id})">
-            <div class="activity-icon rented">&#128100;</div>
+            <div class="activity-icon rented"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"/></svg></div>
             <div>
               <div class="activity-text">
                 <strong>${shortAddr(r.renter)}</strong> rented <strong>${label}</strong>
@@ -6164,5 +5993,6 @@
       else open.classList.remove('active');
     });
   </script>
+
 </body>
 </html>

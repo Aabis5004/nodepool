@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NodePool — Full Landing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font-body:'Manrope',Arial,sans-serif;--font-mono:'DM Mono',monospace;
+  --bg:#050509;--panel:#0c0d16;--panel-2:#10111c;
+  --ink:#f4f5fb;--dim:#8a90ad;--faint:#565c78;
+  --violet:#7c5cff;--violet-2:#9d7bff;--cyan:#22d3ee;--glow:rgba(124,92,255,.55);
+  --line:rgba(150,160,220,.10);--card-border:rgba(150,160,220,.14);--green:#34d399;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* ===== HEADER ===== */
+.header{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:24px;
+  padding:16px 32px;max-width:1240px;margin:0 auto;backdrop-filter:blur(12px)}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);font-weight:800;font-size:19px;letter-spacing:-.02em}
+.brand .mk{display:grid;grid-template-columns:1fr 1fr;gap:3px;width:26px;height:26px;padding:4px;border-radius:8px;background:linear-gradient(135deg,var(--violet),var(--cyan));box-shadow:0 6px 18px rgba(124,92,255,.4)}
+.brand .mk i{background:#fff;border-radius:2px}
+.nav{display:flex;gap:28px}
+.nav a{color:var(--dim);text-decoration:none;font-size:14px;font-weight:500;transition:.2s}
+.nav a:hover{color:var(--ink)}
+.h-actions{display:flex;gap:11px}
+.h-ghost{background:transparent;border:1px solid var(--card-border);color:var(--ink);padding:9px 16px;border-radius:10px;font-weight:600;font-size:13.5px;cursor:pointer;font-family:var(--font-body);transition:.2s}
+.h-ghost:hover{border-color:var(--violet)}
+.h-cta{background:linear-gradient(135deg,var(--violet),var(--violet-2));border:0;color:#fff;padding:9px 18px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:var(--font-body);box-shadow:0 8px 22px rgba(124,92,255,.3)}
+
+/* ===== HERO (beam) ===== */
+.hero{position:relative;max-width:1200px;margin:0 auto;padding:70px 32px 0;text-align:center}
+.hero::before{content:"";position:absolute;top:30px;left:50%;transform:translateX(-50%);width:900px;height:520px;background:radial-gradient(ellipse at center,rgba(124,92,255,.22),transparent 60%);filter:blur(30px);z-index:0;pointer-events:none}
+.hero-inner{position:relative;z-index:2}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;color:var(--dim);border:1px solid var(--card-border);background:var(--panel);padding:7px 14px;border-radius:999px;margin-bottom:24px}
+.eyebrow b{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+.hero h1{font-size:clamp(40px,6.5vw,74px);font-weight:800;letter-spacing:-.03em;line-height:1.02;margin:0 0 20px}
+.hero h1 .g{background:linear-gradient(120deg,#c4b5fd,#22d3ee);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--dim);font-size:18px;line-height:1.55;max-width:600px;margin:0 auto 34px}
+.get-btn{position:relative;display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--violet),var(--violet-2));border:0;color:#fff;padding:16px 30px;border-radius:14px;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 12px 40px var(--glow);transition:transform .2s;font-family:var(--font-body)}
+.get-btn:hover{transform:translateY(-2px)}
+.get-btn svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.beam{position:relative;height:90px;margin-top:-6px;z-index:1}
+.beam::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:3px;height:90px;background:linear-gradient(180deg,#fff,rgba(124,92,255,.6),transparent);box-shadow:0 0 20px var(--glow)}
+.beam::after{content:"";position:absolute;top:60px;left:50%;transform:translateX(-50%);width:340px;height:90px;background:radial-gradient(ellipse at top,rgba(196,181,253,.55),rgba(124,92,255,.15),transparent 70%);filter:blur(6px);animation:beamPulse 3s ease-in-out infinite}
+@keyframes beamPulse{0%,100%{opacity:.7}50%{opacity:1}}
+.dash{position:relative;z-index:2;max-width:1080px;margin:0 auto;background:linear-gradient(180deg,var(--panel),#08090f);border:1px solid var(--card-border);border-radius:20px 20px 0 0;box-shadow:0 -10px 60px rgba(124,92,255,.18),0 40px 100px rgba(0,0,0,.6);overflow:hidden;text-align:left}
+.dash-top{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line)}
+.dash-brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px}
+.dash-logo{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--violet),var(--cyan))}
+.dash-search{flex:1;max-width:320px;margin:0 20px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;color:var(--faint);font-size:12.5px;font-family:var(--font-mono)}
+.dash-pill{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-size:12px;color:var(--dim)}
+.dash-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding:22px}
+.d-card{background:linear-gradient(180deg,var(--panel-2),#0b0c14);border:1px solid var(--line);border-radius:14px;padding:18px}
+.d-label{font-size:12px;color:var(--dim);margin-bottom:8px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.5px}
+.d-val{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.d-delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-left:8px;padding:2px 7px;border-radius:6px;color:var(--green);background:rgba(52,211,153,.12)}
+.d-muted{color:var(--faint);font-family:var(--font-mono);font-size:12px}
+.d-wide{grid-column:span 2}
+.d-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px}
+.d-row:last-child{border-bottom:none}
+.d-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);display:inline-block;margin-right:8px}
+.mini-bars{display:flex;align-items:flex-end;gap:5px;height:56px;margin-top:12px}
+.mini-bars i{flex:1;background:linear-gradient(180deg,var(--violet),rgba(124,92,255,.2));border-radius:4px 4px 0 0}
+
+/* ===== FEATURES ===== */
+.wrap{max-width:1200px;margin:0 auto;padding:100px 32px}
+.sec-head{text-align:center;margin-bottom:56px}
+.sec-head h2{font-size:clamp(34px,5vw,56px);font-weight:800;letter-spacing:-.03em;margin:0 0 14px;line-height:1.05}
+.sec-head p{color:var(--dim);font-size:17px;margin:0 auto;max-width:560px;line-height:1.5}
+.bento{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+.bento-row2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:18px}
+.tile{position:relative;background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--card-border);border-radius:22px;padding:30px;overflow:hidden;transition:transform .3s,border-color .3s}
+.tile:hover{transform:translateY(-4px);border-color:rgba(124,92,255,.45)}
+.tile h3{font-size:22px;font-weight:700;margin:0 0 8px;letter-spacing:-.01em}
+.tile p{color:var(--dim);font-size:14.5px;line-height:1.55;margin:0;max-width:340px}
+.tile.tall{min-height:380px;display:flex;flex-direction:column;justify-content:flex-end}
+.tile.wide{min-height:380px}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--violet-2);margin-bottom:14px}
+.sec-vis{position:absolute;top:-10px;left:0;right:0;height:250px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ring{position:absolute;border-radius:50%;border:1px solid rgba(124,92,255,.22)}
+.ring.a{width:100px;height:100px;animation:ripple 3.2s ease-out infinite}.ring.b{width:180px;height:180px;animation:ripple 3.2s ease-out infinite .5s}
+.ring.c{width:260px;height:260px;animation:ripple 3.2s ease-out infinite 1s}.ring.d{width:340px;height:340px;animation:ripple 3.2s ease-out infinite 1.5s}
+@keyframes ripple{0%{opacity:.7;transform:scale(.7)}100%{opacity:0;transform:scale(1.15)}}
+.sweep{position:absolute;width:300px;height:300px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0deg,rgba(124,92,255,.28) 40deg,transparent 80deg);animation:spin 3.5s linear infinite;mask:radial-gradient(circle,transparent 30px,#000 32px);-webkit-mask:radial-gradient(circle,transparent 30px,#000 32px)}
+.shield{position:relative;z-index:3;width:72px;height:72px;border-radius:20px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#221d40,#0d0b1a);border:1px solid rgba(124,92,255,.5);box-shadow:0 0 50px var(--glow);animation:floaty 5s ease-in-out infinite}
+.shield svg{width:34px;height:34px;stroke:#c4b5fd;fill:none;stroke-width:1.6}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.orbit-wrap{position:absolute;top:14px;right:6px;width:280px;height:250px}
+.orb-core{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3;animation:coreGlow 3s ease-in-out infinite}
+.orb-core svg{width:56px;height:56px;filter:drop-shadow(0 0 14px var(--glow))}
+@keyframes coreGlow{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.12)}}
+.orb-ring{position:absolute;top:50%;left:50%;border:1px solid var(--line);border-radius:50%}
+.orb-ring.big{width:220px;height:220px;margin:-110px 0 0 -110px}.orb-ring.mid{width:140px;height:140px;margin:-70px 0 0 -70px}
+.spin-cw{position:absolute;top:50%;left:50%;width:220px;height:220px;margin:-110px 0 0 -110px;animation:spin 16s linear infinite}
+.spin-ccw{position:absolute;top:50%;left:50%;width:140px;height:140px;margin:-70px 0 0 -70px;animation:spin 12s linear infinite reverse}
+.chip{position:absolute;width:36px;height:36px;border-radius:11px;background:linear-gradient(180deg,#14151f,#0c0d15);border:1px solid var(--card-border);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(0,0,0,.6)}
+.chip svg{width:17px;height:17px;stroke:var(--violet-2);fill:none;stroke-width:1.7}
+.spin-cw .chip{top:-18px;left:calc(50% - 18px)}.spin-cw .chip.p2{top:calc(50% - 18px);left:-18px}.spin-cw .chip.p3{bottom:-18px;left:calc(50% - 18px);top:auto}
+.spin-cw .chip svg{animation:spin 16s linear infinite reverse}
+.spin-ccw .chip{top:-16px;left:calc(50% - 16px);width:32px;height:32px}.spin-ccw .chip.q2{top:calc(50% - 16px);right:-16px;left:auto}
+.spin-ccw .chip svg{animation:spin 12s linear infinite}
+.orbit-dot{position:absolute;top:50%;left:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan);offset-path:circle(110px at center);animation:travel 6s linear infinite}
+@keyframes travel{to{offset-distance:100%}}
+.chart{position:absolute;inset:auto 0 0 0;height:180px}
+.chart svg{width:100%;height:100%}
+.chart .area{fill:url(#g)}
+.chart .line{fill:none;stroke:url(#lg);stroke-width:2.6;stroke-dasharray:600;stroke-dashoffset:600;animation:draw 2.4s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.chart .dot{fill:#fff;filter:drop-shadow(0 0 10px var(--glow))}
+.bars rect{fill:rgba(124,92,255,.16);transform-origin:bottom;animation:grow 1.6s ease forwards}
+.bars rect:nth-child(1){animation-delay:.1s}.bars rect:nth-child(2){animation-delay:.25s}.bars rect:nth-child(3){animation-delay:.4s}
+.bars rect:nth-child(4){animation-delay:.55s}.bars rect:nth-child(5){animation-delay:.7s}.bars rect:nth-child(6){animation-delay:.85s}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+
+/* ===== PRICING ===== */
+.pricing-stage{position:relative;display:flex;justify-content:center;align-items:center;min-height:520px;margin-top:20px}
+.fan-card{position:absolute;width:300px;height:190px;border-radius:20px;border:1px solid var(--card-border);background:linear-gradient(150deg,#15131f,#0a0b12);box-shadow:0 30px 70px rgba(0,0,0,.55);transition:transform .5s ease}
+.fan-card .fc-active{position:absolute;top:16px;left:18px;font-size:11px;color:var(--faint);font-family:var(--font-mono);letter-spacing:1px;text-transform:uppercase}
+.fan-card .fc-num{position:absolute;bottom:18px;left:18px;font-size:15px;color:var(--dim);font-family:var(--font-mono)}
+.fan-card .fc-chip{position:absolute;top:16px;right:18px;width:34px;height:26px;border-radius:6px;background:linear-gradient(135deg,rgba(124,92,255,.5),rgba(34,211,238,.3))}
+.fan-l{transform:translateX(-150px) rotate(-14deg)}.fan-r{transform:translateX(150px) rotate(14deg)}
+.pricing-stage:hover .fan-l{transform:translateX(-190px) rotate(-18deg)}.pricing-stage:hover .fan-r{transform:translateX(190px) rotate(18deg)}
+.price-panel{position:relative;z-index:3;width:380px;border-radius:24px;padding:34px;background:linear-gradient(180deg,#171526,#0c0d15);border:1px solid rgba(124,92,255,.35);box-shadow:0 40px 100px rgba(124,92,255,.25)}
+.price-top{background:radial-gradient(ellipse at top,rgba(124,92,255,.4),transparent 70%);position:absolute;inset:0 0 auto 0;height:120px;border-radius:24px 24px 0 0;pointer-events:none}
+.price-panel .amt{font-size:46px;font-weight:800;letter-spacing:-.03em;position:relative}
+.price-panel .amt small{font-size:15px;color:var(--dim);font-weight:500;margin-left:6px}
+.price-panel .sub{color:var(--faint);font-size:13px;margin:2px 0 22px;font-family:var(--font-mono)}
+.price-cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:linear-gradient(135deg,var(--violet),var(--violet-2));border:0;color:#fff;padding:14px;border-radius:13px;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 12px 34px var(--glow);transition:transform .2s;font-family:var(--font-body)}
+.price-cta:hover{transform:translateY(-2px)}
+.price-cta svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.incl{margin-top:26px}
+.incl-h{font-size:15px;font-weight:700;margin-bottom:14px}
+.incl-row{display:flex;align-items:center;gap:11px;padding:8px 0;font-size:14px;color:var(--dim)}
+.incl-row .ck{flex:none;width:20px;height:20px;border-radius:50%;background:var(--violet);display:flex;align-items:center;justify-content:center}
+.incl-row .ck svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* ===== BLUR CTA ===== */
+.blur-cta{text-align:center;padding:120px 32px 90px}
+.blur-cta h2{font-size:clamp(38px,6vw,68px);font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:0 auto;max-width:720px}
+.blur-cta h2 .soft{color:var(--faint);filter:blur(6px);transition:filter .5s,color .5s}
+.blur-cta:hover h2 .soft{filter:blur(0);color:var(--ink)}
+.blur-cta .row{margin-top:36px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.b-primary{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(135deg,var(--violet),var(--violet-2));border:0;color:#fff;padding:15px 28px;border-radius:13px;font-weight:700;font-size:15.5px;cursor:pointer;box-shadow:0 12px 34px var(--glow);font-family:var(--font-body)}
+.b-ghost{background:rgba(255,255,255,.04);border:1px solid var(--card-border);color:var(--ink);padding:15px 28px;border-radius:13px;font-weight:600;font-size:15.5px;cursor:pointer;font-family:var(--font-body)}
+
+/* ===== FOOTER ===== */
+.footer{border-top:1px solid var(--line);padding:40px 32px;text-align:center;color:var(--faint);font-size:13px;font-family:var(--font-mono)}
+.footer a{color:var(--violet-2);text-decoration:none}
+
+@media(max-width:860px){.nav{display:none}.bento,.bento-row2,.dash-body{grid-template-columns:1fr}.d-wide{grid-column:span 1}.fan-card{display:none}.price-panel{width:100%;max-width:380px}}
+</style>
+</head>
+<body id="top">
+
+<!-- HEADER -->
+<header class="header">
+  <a href="#top" class="brand"><span class="mk"><i></i><i></i><i></i><i></i></span>NodePool</a>
+  <nav class="nav"><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#top">Marketplace</a></nav>
+  <div class="h-actions"><button class="h-ghost">Connect wallet</button><button class="h-cta">Get started</button></div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow"><b></b>Live on Base Sepolia · Built for Rialo</span>
+    <h1>Turn idle machines<br>into <span class="g">verified income</span></h1>
+    <p>A peer-to-peer compute marketplace where the escrow contract — not a company — verifies uptime and releases payment.</p>
+    <button class="get-btn">Get Started <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+  </div>
+  <div class="beam"></div>
+  <div class="dash">
+    <div class="dash-top">
+      <div class="dash-brand"><span class="dash-logo"></span> NodePool</div>
+      <div class="dash-search">Search machines, rentals…</div>
+      <div class="dash-pill">Base Sepolia</div>
+    </div>
+    <div class="dash-body">
+      <div class="d-card"><div class="d-label">Machines live</div><div class="d-val">1<span class="d-delta">▲ online</span></div></div>
+      <div class="d-card"><div class="d-label">Avg verified uptime</div><div class="d-val">100%<span class="d-delta">▲ 30d</span></div></div>
+      <div class="d-card"><div class="d-label">Cheapest / hour</div><div class="d-val">0.0001<span class="d-muted" style="font-size:13px;margin-left:6px">ETH</span></div></div>
+      <div class="d-card d-wide"><div class="d-label">Network uptime</div><div class="mini-bars"><i style="height:60%"></i><i style="height:80%"></i><i style="height:55%"></i><i style="height:90%"></i><i style="height:75%"></i><i style="height:100%"></i><i style="height:85%"></i><i style="height:95%"></i><i style="height:70%"></i><i style="height:100%"></i></div></div>
+      <div class="d-card"><div class="d-label">Recent activity</div><div class="d-row"><span><span class="d-dot"></span>Rental settled</span><span class="d-muted">8m</span></div><div class="d-row"><span><span class="d-dot"></span>Machine online</span><span class="d-muted">now</span></div><div class="d-row"><span><span class="d-dot"></span>Uptime verified</span><span class="d-muted">1m</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<div class="wrap" id="features">
+  <div class="sec-head"><h2>Built for real compute</h2><p>Verifiable uptime, isolated access, and settlement handled by the contract itself.</p></div>
+  <div class="bento">
+    <div class="tile tall">
+      <div class="sec-vis"><span class="ring a"></span><span class="ring b"></span><span class="ring c"></span><span class="ring d"></span><span class="sweep"></span><div class="shield"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div></div>
+      <span class="tag">Isolation</span><h3>Sandboxed by design</h3><p>Renters get a container with dropped privileges and no access to the host — a real machine, fully walled off.</p>
+    </div>
+    <div class="tile wide">
+      <span class="tag">Access</span><h3>Rent from any wallet</h3><p>Connect MetaMask, Rabby, or OKX and rent by the hour. No accounts, no logins.</p>
+      <div class="orbit-wrap">
+        <div class="orb-ring big"></div><div class="orb-ring mid"></div><div class="orbit-dot"></div>
+        <div class="orb-core"><svg viewBox="0 0 56 56"><path d="M28 6l4.5 15L48 25.5 32.5 30 28 45l-4.5-15L8 25.5 23.5 21z" fill="url(#core)"/><defs><linearGradient id="core" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c4b5fd"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs></svg></div>
+        <div class="spin-cw"><div class="chip"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M4 9h16"/></svg></div><div class="chip p2"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 8v8M8 12h8"/></svg></div><div class="chip p3"><svg viewBox="0 0 24 24"><path d="M3 12h18M12 3v18"/></svg></div></div>
+        <div class="spin-ccw"><div class="chip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></div><div class="chip q2"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="bento-row2">
+    <div class="tile"><span class="tag">Payment</span><h3>Pay per second</h3><p>The contract streams payment for exactly the verified time used. Stop early, pay less — the rest refunds.</p></div>
+    <div class="tile"><span class="tag">Trust</span><h3>Verified onchain</h3><p>An agent proves uptime every 60 seconds. No self-reporting — providers earn only for time actually online.</p></div>
+    <div class="tile" style="min-height:230px;position:relative"><span class="tag">Uptime</span><h3>Proven, not promised</h3>
+      <div class="chart"><svg viewBox="0 0 300 180" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c5cff" stop-opacity=".45"/><stop offset="1" stop-color="#7c5cff" stop-opacity="0"/></linearGradient><linearGradient id="lg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><g class="bars"><rect x="20" y="90" width="18" height="90"/><rect x="66" y="70" width="18" height="110"/><rect x="112" y="100" width="18" height="80"/><rect x="158" y="55" width="18" height="125"/><rect x="204" y="40" width="18" height="140"/><rect x="250" y="25" width="18" height="155"/></g><path class="area" d="M0,140 C40,128 60,96 100,100 C140,104 160,62 200,52 C240,44 270,30 300,22 L300,180 L0,180 Z"/><path class="line" d="M0,140 C40,128 60,96 100,100 C140,104 160,62 200,52 C240,44 270,30 300,22"/><circle class="dot" cx="300" cy="22" r="5"/></svg></div>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<div class="wrap" id="pricing">
+  <div class="sec-head"><h2>Pay only for what runs</h2><p>No subscription. No platform fee. You pay the provider directly, per verified second of uptime.</p></div>
+  <div class="pricing-stage">
+    <div class="fan-card fan-l"><span class="fc-active">Active</span><span class="fc-chip"></span><span class="fc-num">Machine · online</span></div>
+    <div class="fan-card fan-r"><span class="fc-active">Verified</span><span class="fc-chip"></span><span class="fc-num">Uptime · 100%</span></div>
+    <div class="price-panel"><div class="price-top"></div><div class="amt">0.0001<small>ETH / hour</small></div><div class="sub">from — set by each provider</div>
+      <button class="price-cta">Browse Machines <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <div class="incl"><div class="incl-h">Every rental includes</div>
+        <div class="incl-row"><span class="ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Real SSH access to an isolated container</div>
+        <div class="incl-row"><span class="ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Credentials encrypted to your wallet</div>
+        <div class="incl-row"><span class="ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Per-second streaming settlement</div>
+        <div class="incl-row"><span class="ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Unused time refunded automatically</div>
+        <div class="incl-row"><span class="ck"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Escrow held by the contract, not us</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BLUR CTA -->
+<div class="blur-cta">
+  <h2>Ready to put your<br>machine <span class="soft">to work?</span></h2>
+  <div class="row"><button class="b-primary">List Your Machine <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button><button class="b-ghost">Browse Machines</button></div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">© 2026 NodePool — hackathon build, testnet only. &nbsp;·&nbsp; Built for the Rialo ecosystem &nbsp;·&nbsp; <a href="#top">Rialo mainnet — soon</a></footer>
+
+</body>
+</html>

@@ -1,55 +1,45 @@
-Fix rental payment and make it per-second streaming with auto-expiry. Read
-contracts/NodePool.sol, agent/agent.js, and frontend/index.html first, and explain
-the current settlement logic and WHY a completed ~1-hour rental just paid out 0
-(the rental showed "0 of 1 hours paid out, 0%" and refunded the full deposit to the
-renter, provider earned nothing). Give a PLAN and confirm with me before writing
-code or deploying. Do NOT deploy without my go.
+Restyle the APP screens (Marketplace, My Machines, My Rentals, Dashboard, rental
+detail) to match the new landing design. They still look like the OLD website - big
+flat boxy cards, long text blocks. Bring them up to the new visual system WITHOUT
+changing any logic. This is a VISUAL restyle only.
 
-## Diagnose first
-- Explain exactly why that rental verified 0 uptime and paid 0. Is it because
-  reportUptime only credits whole completed hours, because the agent's reportUptime
-  calls failed/were skipped, or because settlement rounds down to whole hours? Show
-  the relevant contract lines.
+## What's wrong now
+- Dashboard stat cards, marketplace machine cards, rental-detail stat boxes are big,
+  flat, and boxy - old style. Long paragraph messages feel heavy.
+- They should match the new landing: the same dark violet/cyan system, cleaner and
+  more compact cards, rounded/glassy style, subtle motion (hover lift, glow, entrance
+  animation), and shorter punchy text instead of long sentences.
 
-## Target model: per-second streaming payment
-- Change settlement from whole-hours to per-SECOND. The rental has startTime and a
-  paid duration (hours * 3600 seconds). The amount owed to the provider at any moment
-  is elapsedSeconds * (pricePerHour / 3600), capped at the deposit. Elapsed is
-  min(now, startTime + paidDurationSeconds) - startTime, so it stops growing at the
-  end.
-- The provider's earned amount should therefore increase every second automatically
-  from the timestamps — no per-second transaction (that's impossible on-chain).
-  Settlement (actually moving ETH to the provider's withdrawable balance) happens on
-  claim/withdraw and on rental end, computed from elapsed seconds.
-- IMPORTANT: uptime should still gate payment (provider only earns while the machine
-  is actually online), but the accrual must be per-second of verified-online time,
-  not rounded to whole hours. Decide the cleanest way: e.g. track last-verified
-  timestamp and credit the online interval in seconds. Explain your approach.
+## What to do
+- Restyle the shared app card classes (machine cards, rental cards, the .metric/stat
+  boxes, dashboard stat cards, rental-detail panels) to the new design language:
+  compact, rounded, glassy, violet/cyan accents, hover motion, tasteful entrance
+  reveal. Make cards feel like polished popup-style cards, not big flat boxes - smaller,
+  denser, cleaner.
+- Shorten heavy copy: e.g. long lines like "Provider's agent is offline — can't be
+  rented until it reconnects." and "Paid out and time remaining update live, assuming
+  the machine stays online — they resync from the blockchain every 15 seconds." and
+  "Decrypted locally with a key only your wallet can reproduce — nobody else can read
+  this, including us." -> make them short and clean (a few words), remove em-dashes.
+- Keep the SAME data and the SAME numbers shown - just present them in cleaner, more
+  compact, animated cards.
+- Add subtle animation: cards fade/slide in when a tab loads, hover states, soft glow.
 
-## Auto-offline / auto-expiry
-- When elapsed >= paidDurationSeconds, the rental is over: the contract treats it as
-  ended (no more accrual), the provider can claim final payment, and remaining escrow
-  (if any) refunds correctly.
-- The agent must detect the rental leaving the active set and tear down the
-  container + tunnel (this already exists for end/cancel — make sure expiry triggers
-  it too).
-- The machine should return to available/online for new rentals after expiry.
-
-## Frontend
-- Rental detail: show earned/paid amount and time remaining ticking DOWN every second
-  live (computed client-side from startTime + rate, matching the contract math), and
-  escrow-left ticking down. Provider dashboard: show real earnings that reflect
-  streamed accrual, and per-rental history (which address rented, when, how much
-  paid).
-- Provider "Withdraw Earnings" must actually pay out the accrued streamed amount.
-
-## Constraints
-- Keep existing security: device key can only report uptime / write creds / set
-  online, never move funds. Owner-only for withdraw/delist.
-- One active rental per machine (unchanged).
-- Fresh deploy since contract changes; update CONTRACT_ADDRESS in frontend,
-  agent/.env, deployments.json (all three match).
+## ABSOLUTELY do not break (these live in these exact screens)
+- The rent flow, requestRental + encryption signature, Accept/Decline.
+- The SSH Access panel: Show SSH Access, the decrypt signature, credential display.
+- The per-second live ticker + offline-freeze (Term/Time remaining, Escrow left, Paid
+  out) - keep it working exactly, just restyle its cards.
+- Withdraw Earnings, Cancel Rental & Settle, machine registration, Authorize Device,
+  Delist.
+- Every element ID the JS reads/updates (the ticker writes to these live), all onclick
+  handlers, all contract calls. Restyle CSS + shorten text only - do not touch the JS,
+  the data flow, or the IDs.
 
 ## Process
-Diagnose + plan first, confirm with me, then implement in phases, hold deploy until
-I say go.
+Because these screens hold the core working logic, be careful: restyle the CSS classes
+and shorten text strings only. After, test on localhost:3000 - every flow must still
+work: connect wallet, browse marketplace, rent (with encryption sig), Show SSH Access +
+decrypt, the live ticker moving + freezing when offline, withdraw, register machine,
+all tabs/modals. Confirm the ticker still updates the restyled cards live. Don't push
+until I confirm.
