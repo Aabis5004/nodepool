@@ -135,6 +135,10 @@ Most providers never need to touch .env.
 
 The agent runs on ONE chain per run. You choose the chain with the command:
 
+    cd ~/hackathon/agent
+    node agent.js arc
+
+
     node agent.js base     run on Base Sepolia (gas and rent in ETH)
     node agent.js arc      run on Arc Testnet (gas and rent in USDC)
 
