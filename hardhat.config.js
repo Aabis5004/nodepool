@@ -4,6 +4,8 @@ require("dotenv").config();
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
 const BASE_SEPOLIA_RPC_URL =
   process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
+const ARC_TESTNET_RPC_URL =
+  process.env.ARC_TESTNET_RPC_URL || "https://rpc.testnet.arc.io";
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -25,6 +27,11 @@ module.exports = {
     baseSepolia: {
       url: BASE_SEPOLIA_RPC_URL,
       chainId: 84532,
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+    },
+    arc: {
+      url: ARC_TESTNET_RPC_URL,
+      chainId: 5042002,
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
     },
   },

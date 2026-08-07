@@ -9,3 +9,7 @@ deployments.json
 .hardhat-node.log
 agent/machine-id.json
 agent/device-key.json
+.agents/
+.claude/
+skills-lock.json
+CLAUDE_FIX.md

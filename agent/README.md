@@ -63,9 +63,26 @@ reason, rather than a generic "provisioning failed."
 
 ## Run
 
+NodePool is deployed to two separate chains — Base Sepolia (ETH) and Arc Testnet (USDC) — each
+its own independent marketplace. One agent process serves ONE chain at a time:
+
 ```bash
-npm start
+node agent.js base    # Base Sepolia
+node agent.js arc     # Arc Testnet
 ```
+
+`npm start` (no argument) defaults to `.env`'s `CHAIN` if set, otherwise Base Sepolia — the same
+behavior as before this option existed, so existing setups keep working unchanged. To serve both
+chains, run two instances (two terminals, or two `.env`-configured copies of this folder).
+
+On startup the agent prints which chain it's running on and its currency, e.g.:
+```
+NodePool agent — chain: Arc Testnet (USDC gas) — contract 0x6b37...
+```
+
+If the device address has no gas on the chosen chain, it prints a warning with the right faucet
+(the ETH faucet for Base, faucet.circle.com for Arc) but keeps running — reporting just won't
+land on-chain until it's funded.
 
 On first run:
 1. Generates a random device key, saved to `agent/device-key.json` (gitignored — never commit

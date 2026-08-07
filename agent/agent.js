@@ -21,8 +21,56 @@ const nacl = require('tweetnacl');
 
 const execFileAsync = promisify(execFile);
 
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0x2D16D7F81ac8a13b1A99E74dFDc94eb6107A8243';
-const RPC_URL = process.env.RPC_URL || 'https://base-sepolia-rpc.publicnode.com';
+// NodePool is deployed to two separate chains — each is its own independent marketplace.
+// This agent serves ONE chain per process; the chain is picked at startup (see resolveChain()
+// below), not both at once. To serve both, run two instances: `node agent.js base` in one
+// terminal, `node agent.js arc` in another.
+const CHAINS = {
+  base: {
+    name: 'Base Sepolia',
+    chainId: 84532,
+    contract: '0x2D16D7F81ac8a13b1A99E74dFDc94eb6107A8243',
+    rpc: 'https://base-sepolia-rpc.publicnode.com',
+    currency: 'ETH',
+    faucet: 'https://www.alchemy.com/faucets/base-sepolia',
+  },
+  arc: {
+    name: 'Arc Testnet',
+    chainId: 5042002,
+    contract: '0x6b37F3b13CbFB4663C0b7951a885BD646cb6FdC9',
+    rpc: 'https://rpc.testnet.arc.io',
+    currency: 'USDC',
+    faucet: 'https://faucet.circle.com',
+  },
+};
+
+// Picks which chain to run on: CLI arg (`node agent.js arc`) wins, then .env's CHAIN, then
+// base — the same default as before this feature existed, so existing single-chain setups
+// with no CHAIN set and no arg keep working unchanged. Also reports whether the choice came
+// from an explicit CLI arg, since that should override a stale CONTRACT_ADDRESS/RPC_URL in
+// .env (see below) rather than quietly losing to it.
+function resolveChain() {
+  const fromArg = Boolean(process.argv[2]);
+  const raw = (process.argv[2] || process.env.CHAIN || 'base').trim().toLowerCase();
+  const aliases = {
+    base: 'base', basesepolia: 'base', 'base-sepolia': 'base', 'base_sepolia': 'base',
+    arc: 'arc', arctestnet: 'arc', 'arc-testnet': 'arc', 'arc_testnet': 'arc',
+  };
+  const key = aliases[raw];
+  if (!key) {
+    console.error(`Unknown chain "${raw}". Supported: base, arc.`);
+    console.error('Usage: node agent.js [base|arc]');
+    process.exit(1);
+  }
+  return { ...CHAINS[key], fromArg };
+}
+
+const ACTIVE_CHAIN = resolveChain();
+// An explicit `node agent.js base|arc` is an unambiguous choice — it wins over a
+// CONTRACT_ADDRESS/RPC_URL left in .env from a different chain. Without a CLI arg, those env
+// vars still override (legacy single-chain .env setups keep working exactly as before).
+const CONTRACT_ADDRESS = (!ACTIVE_CHAIN.fromArg && process.env.CONTRACT_ADDRESS) || ACTIVE_CHAIN.contract;
+const RPC_URL = (!ACTIVE_CHAIN.fromArg && process.env.RPC_URL) || ACTIVE_CHAIN.rpc;
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 3939);
 
 // Stage 3: isolated per-rental SSH containers, tunneled out with ngrok. See agent/README.md.
@@ -574,9 +622,25 @@ async function runUptimeLoop(contract, machineId) {
 }
 
 async function main() {
+  console.log(`NodePool agent — chain: ${ACTIVE_CHAIN.name} (${ACTIVE_CHAIN.currency} gas) — contract ${CONTRACT_ADDRESS}`);
+
   const deviceWallet = loadOrCreateDeviceKey();
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const signer = deviceWallet.connect(provider);
+
+  // Gas check — reportUptime/setMachineOnline are transactions and need it, but an empty
+  // wallet shouldn't crash the process, just make the problem obvious up front instead of
+  // as a string of opaque tx failures later.
+  try {
+    const balance = await provider.getBalance(deviceWallet.address);
+    if (balance === 0n) {
+      console.warn(`WARNING: device address ${deviceWallet.address} has no ${ACTIVE_CHAIN.currency} on ${ACTIVE_CHAIN.name}.`);
+      console.warn(`  Uptime reports and status updates need gas to land. Fund it: ${ACTIVE_CHAIN.faucet}`);
+    }
+  } catch (err) {
+    console.warn(`Could not check gas balance (${ACTIVE_CHAIN.name} RPC): ${err.message || err}`);
+  }
+
   // NonceManager tracks the next nonce locally instead of re-querying the RPC for every send -
   // without it, back-to-back sends (e.g. the startup heartbeat and a reportUptime call) can
   // race the provider's pending-nonce lookup and get "nonce too low" on the second transaction.

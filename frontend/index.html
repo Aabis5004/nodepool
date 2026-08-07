@@ -10,7 +10,7 @@
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: https:;
     font-src 'self' data: https://fonts.gstatic.com;
-    connect-src 'self' https://cdnjs.cloudflare.com https://base-sepolia-rpc.publicnode.com https://sepolia.base.org https://*.publicnode.com https://sepolia.basescan.org;
+    connect-src 'self' https://cdnjs.cloudflare.com https://base-sepolia-rpc.publicnode.com https://sepolia.base.org https://*.publicnode.com https://sepolia.basescan.org https://rpc.testnet.arc.io https://testnet.arcscan.app;
     worker-src 'self' blob:;
     object-src 'none';
     base-uri 'self';
@@ -182,6 +182,22 @@
     .np2-nav a { color: var(--np2-dim); text-decoration: none; font-size: 14px; font-weight: 500; transition: .2s; }
     .np2-nav a:hover { color: var(--np2-ink); }
     .np2-header .wallet-controls { font-family: var(--np2-font-body); }
+    .np2-chain-switcher {
+      font-family: var(--np2-font-body);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--np2-ink);
+      background: var(--np2-panel-2);
+      border: 1px solid var(--np2-card-border);
+      border-radius: 10px;
+      padding: 7px 10px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s ease;
+    }
+    .np2-chain-switcher:hover, .np2-chain-switcher:focus { border-color: rgba(124, 92, 255, .5); }
+    .np2-chain-switcher option { background: var(--np2-panel-2); color: var(--np2-ink); }
+    @media (max-width: 720px) { .np2-chain-switcher { font-size: 12px; padding: 6px 8px; } }
 
     /* Deprecated — kept only until the footer (still using .logo/.logo-icon/.logo-text
        below) is migrated to the np2 design in a later step. */
@@ -375,9 +391,34 @@
     .wallet-menu-copy:hover { text-decoration: underline; }
 
     /* ============ np2 HERO (reference design) ============ */
-    .np2-hero { position: relative; max-width: 1200px; margin: 0 auto; padding: 70px 32px 0; text-align: center; font-family: var(--np2-font-body); color: var(--np2-ink); background: var(--np2-bg); }
+    .np2-hero { position: relative; max-width: 1200px; margin: 0 auto; padding: 70px 32px 0; text-align: center; font-family: var(--np2-font-body); color: var(--np2-ink); background: var(--np2-bg); overflow: hidden; }
     .np2-hero::before { content: ""; position: absolute; top: 30px; left: 50%; transform: translateX(-50%); width: 900px; height: 520px; background: radial-gradient(ellipse at center, rgba(124,92,255,.22), transparent 60%); filter: blur(30px); z-index: 0; pointer-events: none; }
     .np2-hero-inner { position: relative; z-index: 2; }
+
+    /* Aurora — slow drifting gradient blobs behind the hero, real depth instead of a flat glow */
+    .np2-aurora { position: absolute; inset: -10% -10% auto -10%; height: 700px; z-index: 0; pointer-events: none; overflow: hidden; }
+    .np2-aurora span { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; }
+    .np2-aurora span:nth-child(1) { width: 480px; height: 480px; left: 5%; top: 0; background: radial-gradient(circle, rgba(124,92,255,.55), transparent 70%); animation: np2Drift1 18s ease-in-out infinite; }
+    .np2-aurora span:nth-child(2) { width: 420px; height: 420px; right: 8%; top: 40px; background: radial-gradient(circle, rgba(34,211,238,.45), transparent 70%); animation: np2Drift2 22s ease-in-out infinite; }
+    .np2-aurora span:nth-child(3) { width: 320px; height: 320px; left: 40%; top: 120px; background: radial-gradient(circle, rgba(196,181,253,.4), transparent 70%); animation: np2Drift3 16s ease-in-out infinite; }
+    @keyframes np2Drift1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(60px,40px) scale(1.15); } }
+    @keyframes np2Drift2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-50px,30px) scale(1.1); } }
+    @keyframes np2Drift3 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(30px,-40px) scale(1.2); } }
+    @media (prefers-reduced-motion: reduce) { .np2-aurora span { animation: none; } }
+
+    /* Cursor spotlight — fixed, low-opacity radial glow that trails the mouse across the
+       whole page. mix-blend-mode: screen keeps it subtle against light and dark surfaces. */
+    #np2Spotlight {
+      position: fixed;
+      top: 0; left: 0;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,92,255,.10), transparent 70%);
+      pointer-events: none;
+      z-index: 5;
+      mix-blend-mode: screen;
+      will-change: transform;
+    }
     @keyframes np2FadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
     .np2-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-family: var(--np2-font-mono); font-size: 12px; color: var(--np2-dim); border: 1px solid var(--np2-card-border); background: var(--np2-panel); padding: 7px 14px; border-radius: 999px; margin-bottom: 24px; animation: np2FadeUp .6s cubic-bezier(.16,1,.3,1) both; }
     .np2-eyebrow b { width: 7px; height: 7px; border-radius: 50%; background: var(--np2-green); box-shadow: 0 0 10px var(--np2-green); animation: pulse 2s infinite; }
@@ -392,7 +433,8 @@
     .np2-beam::after { content: ""; position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 340px; height: 90px; background: radial-gradient(ellipse at top, rgba(196,181,253,.55), rgba(124,92,255,.15), transparent 70%); filter: blur(6px); animation: np2BeamPulse 3s ease-in-out infinite; }
     @keyframes np2BeamPulse { 0%,100% { opacity: .7; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.08); } }
     @keyframes np2BeamGlow { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
-    .np2-dash { position: relative; z-index: 2; max-width: 1080px; margin: 0 auto; background: linear-gradient(180deg, var(--np2-panel), #08090f); border: 1px solid var(--np2-card-border); border-radius: 20px 20px 0 0; box-shadow: 0 -10px 60px rgba(124,92,255,.18), 0 40px 100px rgba(0,0,0,.6); overflow: hidden; text-align: left; animation: np2FadeUp .7s .3s cubic-bezier(.16,1,.3,1) both; }
+    .np2-dash { position: relative; z-index: 2; max-width: 1080px; margin: 0 auto; background: linear-gradient(180deg, var(--np2-panel), #08090f); border: 1px solid var(--np2-card-border); border-radius: 20px 20px 0 0; box-shadow: 0 -10px 60px rgba(124,92,255,.18), 0 40px 100px rgba(0,0,0,.6); overflow: hidden; text-align: left; animation: np2FadeUp .7s .3s cubic-bezier(.16,1,.3,1) both; transform-style: preserve-3d; will-change: transform; transition: transform .3s cubic-bezier(.16,1,.3,1); }
+    .np2-hero { perspective: 1400px; }
     .np2-dash-top { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--np2-line); }
     .np2-dash-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
     .np2-dash-logo { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, var(--np2-violet), var(--np2-cyan)); }
@@ -410,7 +452,17 @@
     .np2-d-row:last-child { border-bottom: none; }
     .np2-d-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--np2-green); box-shadow: 0 0 8px var(--np2-green); display: inline-block; margin-right: 8px; }
     .np2-mini-bars { display: flex; align-items: flex-end; gap: 5px; height: 56px; margin-top: 12px; }
-    .np2-mini-bars i { flex: 1; background: linear-gradient(180deg, var(--np2-violet), rgba(124,92,255,.2)); border-radius: 4px 4px 0 0; }
+    .np2-mini-bars i { position: relative; flex: 1; background: linear-gradient(180deg, var(--np2-violet), rgba(124,92,255,.2)); border-radius: 4px 4px 0 0; cursor: pointer; transition: opacity .2s ease, transform .2s ease; }
+    .np2-mini-bars i:hover { opacity: .75; transform: scaleY(1.04); }
+    .np2-mini-bars i::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      background: var(--np2-panel-2); border: 1px solid var(--np2-card-border); color: var(--np2-ink);
+      font-size: 11px; font-family: var(--np2-font-mono); padding: 4px 8px; border-radius: 6px;
+      white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s ease; z-index: 5;
+    }
+    .np2-mini-bars i:hover::after { opacity: 1; }
+    .np2-bars-empty { color: var(--np2-faint); font-size: 12px; font-family: var(--np2-font-mono); align-self: center; }
     @media (max-width: 860px) { .np2-dash-body { grid-template-columns: 1fr; } .np2-d-wide { grid-column: span 1; } }
 
     /* ============ HERO STAT POPUP ============ */
@@ -477,8 +529,10 @@
     .np2-sec-head { text-align: center; margin-bottom: 56px; }
     .np2-sec-head h2 { font-size: clamp(34px,5vw,56px); font-weight: 800; letter-spacing: -.03em; margin: 0 0 14px; line-height: 1.05; }
     .np2-sec-head p { color: var(--np2-dim); font-size: 17px; margin: 0 auto; max-width: 560px; line-height: 1.5; }
-    .np2-bento { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
-    .np2-bento-row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-top: 18px; }
+    /* Storytelling layout: one card per row, generously spaced, so scrolling reveals them
+       one at a time instead of a grid popping in all together. */
+    .np2-bento { display: flex; flex-direction: column; gap: 12vh; max-width: 660px; margin: 0 auto; }
+    .np2-bento-row2 { display: flex; flex-direction: column; gap: 12vh; max-width: 660px; margin: 12vh auto 0; }
     .np2-tile { position: relative; background: linear-gradient(180deg, var(--np2-panel), var(--np2-panel-2)); border: 1px solid var(--np2-card-border); border-radius: 22px; padding: 30px; overflow: hidden; transition: transform .35s cubic-bezier(.16,1,.3,1), border-color .35s, box-shadow .35s; }
     .np2-tile:hover { transform: translateY(-6px); border-color: rgba(124,92,255,.45); box-shadow: 0 24px 60px -20px rgba(124,92,255,.35); }
     .np2-tile::after { content: ""; position: absolute; inset: 0; background: radial-gradient(220px circle at 50% 0%, rgba(124,92,255,.14), transparent 70%); opacity: 0; transition: opacity .4s; pointer-events: none; }
@@ -1913,6 +1967,20 @@
       transform: none;
     }
 
+    /* Storytelling settle-in for the features section: a slower, more dramatic entrance
+       (scale + blur clearing + rise) so each card visibly "arrives" before the next. */
+    .np2-bento .np2-tile.reveal, .np2-bento-row2 .np2-tile.reveal {
+      opacity: 0;
+      transform: translateY(60px) scale(.94);
+      filter: blur(6px);
+      transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), transform 1s cubic-bezier(0.16, 1, 0.3, 1), filter 1s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .np2-bento .np2-tile.reveal.visible, .np2-bento-row2 .np2-tile.reveal.visible {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+
     /* Loading Spinner */
     .spinner {
       width: 20px;
@@ -2305,6 +2373,9 @@
       <a href="#pricing">Pricing</a>
       <a href="#app" onclick="goToApp('marketplace')">Marketplace</a>
     </nav>
+    <!-- Manual chain switcher — lists every supported chain, selecting one triggers a wallet
+         network switch (adding the chain first if the wallet doesn't know it yet). -->
+    <select class="np2-chain-switcher" id="chainSwitcher" onchange="onChainSwitcherChange(this.value)"></select>
     <!-- Real wallet control, unchanged — renderWalletControls() owns this div's innerHTML -->
     <div class="wallet-controls" id="walletControls">
       <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
@@ -2327,7 +2398,7 @@
         <div id="wmBalance" class="gradient-text" style="font-size:1.85rem;font-weight:800;margin-top:4px">... ETH</div>
       </div>
       <div class="wallet-modal-section">
-        <div class="wallet-modal-section-label">Add funds — send ETH here</div>
+        <div class="wallet-modal-section-label" id="wmAddFundsLabel">Add funds — send ETH here</div>
         <div style="display:flex;gap:6px;align-items:center">
           <code id="wmAddress" style="flex:1;min-width:0;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent-purple)" title="Full address — use Copy">...</code>
           <button class="btn btn-secondary" style="padding:5px 10px;font-size:0.7rem;white-space:nowrap" onclick="copyWalletAddress()">Copy</button>
@@ -2337,24 +2408,25 @@
         <div class="wallet-modal-section-label">Send / Withdraw</div>
         <input class="form-input" id="wmSendTo" placeholder="Your MetaMask address (0x...)" style="margin-bottom:6px;padding:0.55rem 0.75rem;font-size:0.85rem">
         <input class="form-input" id="wmSendAmount" placeholder="Amount in ETH" inputmode="decimal" style="margin-bottom:8px;padding:0.55rem 0.75rem;font-size:0.85rem">
-        <button class="btn btn-primary" style="width:100%;padding:0.6rem" onclick="sendFunds()">Send ETH</button>
+        <button class="btn btn-primary" style="width:100%;padding:0.6rem" onclick="sendFunds()" id="wmSendBtn">Send ETH</button>
       </div>
     </div>
   </div>
 
   <!-- ================= HERO (np2) ================= -->
   <section class="np2-hero" id="top">
+    <div class="np2-aurora"><span></span><span></span><span></span></div>
     <div class="np2-hero-inner">
-      <span class="np2-eyebrow"><b></b>Live on Base Sepolia</span>
+      <span class="np2-eyebrow"><b></b>Live on <span id="np2ChainBadge">Base Sepolia</span></span>
       <h1>Turn idle machines<br>into <span class="g">verified income</span></h1>
       <p>Rent compute, or list your own. Paid per second, verified onchain.</p>
       <button class="np2-get-btn" onclick="goToApp('marketplace')">Get Started <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
     </div>
     <div class="np2-beam"></div>
-    <div class="np2-dash">
+    <div class="np2-dash" id="np2Dash">
       <div class="np2-dash-top">
         <div class="np2-dash-brand"><span class="np2-dash-logo"></span> NodePool</div>
-        <div class="np2-dash-pill">Base Sepolia</div>
+        <div class="np2-dash-pill" id="np2ChainPill">Base Sepolia</div>
       </div>
       <div class="np2-dash-body">
         <div class="np2-d-card np2-clickable" onclick="np2OpenStat('machines')"><div class="np2-d-label">Machines live</div><div class="np2-d-val" id="np2DashMachines">--</div></div>
@@ -2391,7 +2463,7 @@
         <div class="stats-bar-label">Avg Uptime</div>
       </div>
       <div class="stats-bar-item">
-        <div class="stats-bar-value">Base Sepolia</div>
+        <div class="stats-bar-value" id="statsBarNetwork">Base Sepolia</div>
         <div class="stats-bar-label">Network</div>
       </div>
     </div>
@@ -2442,12 +2514,12 @@
   <!-- ================= PRICING (np2) ================= -->
   <div class="np2-wrap" id="pricing">
     <div class="np2-sec-head"><h2>Pay only for what runs</h2><p>No subscription. No platform fee. You pay the provider directly, per verified second of uptime.</p></div>
-    <div class="np2-pricing-stage">
+    <div class="np2-pricing-stage reveal">
       <div class="np2-fan-card np2-fan-l" id="np2FanMachines" onclick="np2FanFront(this)"><span class="np2-fc-active">Active machines</span><span class="np2-fc-chip"></span><span class="np2-fc-val" id="np2FanMachinesVal">—</span><span class="np2-fc-num">listed right now</span></div>
       <div class="np2-fan-card np2-fan-r" id="np2FanRentals" onclick="np2FanFront(this)"><span class="np2-fc-active">Total rentals</span><span class="np2-fc-chip"></span><span class="np2-fc-val" id="np2FanRentalsVal">—</span><span class="np2-fc-num">to date, onchain</span></div>
       <div class="np2-price-panel">
         <div class="np2-price-top"></div>
-        <div class="np2-amt"><span id="np2PriceAmt">—</span><small>ETH / hour</small></div>
+        <div class="np2-amt"><span id="np2PriceAmt">—</span><small id="np2PriceCcy">ETH / hour</small></div>
         <div class="np2-price-sub" id="np2PriceSub">from — set by each provider</div>
         <button class="np2-price-cta" onclick="goToApp('marketplace')">Browse Machines <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         <div class="np2-incl">
@@ -2498,7 +2570,7 @@
     <div class="app-intro reveal">
       <span class="section-eyebrow">Live marketplace</span>
       <h2 class="section-heading">Browse the network</h2>
-      <p class="section-sub">Connect a wallet on Base Sepolia to rent, list, chat and settle. Listings load without a wallet.</p>
+      <p class="section-sub" id="marketplaceIntroSub">Connect a wallet on Base Sepolia to rent, list, chat and settle. Listings load without a wallet.</p>
     </div>
 
     <!-- Navigation -->
@@ -2630,7 +2702,7 @@
           </div>
           <div class="card stat-card reveal" data-stagger="90">
             <div class="stat-value" id="statEarnings">0</div>
-            <div class="stat-label">Your Earnings (ETH)</div>
+            <div class="stat-label" id="statEarningsLabel">Your Earnings (ETH)</div>
           </div>
         </div>
 
@@ -2707,8 +2779,8 @@
         <h4>Network</h4>
         <ul>
           <li><a id="footerContractLink" href="https://sepolia.basescan.org" target="_blank" rel="noopener">Contract on BaseScan</a></li>
-          <li><a href="https://sepolia.base.org" target="_blank" rel="noopener">Base Sepolia RPC</a></li>
-          <li><a href="https://www.alchemy.com/faucets/base-sepolia" target="_blank" rel="noopener">Testnet faucet</a></li>
+          <li><a id="footerRpcLink" href="https://sepolia.base.org" target="_blank" rel="noopener">Base Sepolia RPC</a></li>
+          <li><a id="footerFaucetLink" href="https://www.alchemy.com/faucets/base-sepolia" target="_blank" rel="noopener">Testnet faucet</a></li>
         </ul>
       </div>
     </div>
@@ -2794,7 +2866,7 @@
           <div class="field-error" id="err-machineOs"></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Price per Hour (ETH)</label>
+          <label class="form-label" id="machinePriceLabel">Price per Hour (ETH)</label>
           <input type="number" class="form-input" id="machinePrice" step="0.0001" min="0.0001" placeholder="0.005" oninput="onMachineFieldInput()">
           <div class="field-error" id="err-machinePrice"></div>
         </div>
@@ -2875,21 +2947,155 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <script>
-    // Contract configuration - UPDATE THIS AFTER DEPLOYMENT
-    // Deployed to Base Sepolia (chainId 84532)
-    const CONTRACT_ADDRESS = '0x2D16D7F81ac8a13b1A99E74dFDc94eb6107A8243';
-    const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
-    const CHAIN_ID = 84532;
-    const CHAIN_ID_HEX = '0x14a34'; // 84532
-    const RPC_URL = 'https://base-sepolia-rpc.publicnode.com'; // sepolia.base.org (the public Base RPC) was too flaky — "too many errors"
-    const EXPLORER_URL = 'https://sepolia.basescan.org';
-    const CHAIN_PARAMS = {
-      chainId: CHAIN_ID_HEX,
-      chainName: 'Base Sepolia',
-      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-      rpcUrls: [RPC_URL],
-      blockExplorerUrls: [EXPLORER_URL],
+    // Multi-chain config — each chain is its own separate marketplace (own contract,
+    // machines, rentals, stats). Keyed by decimal chainId. Arc Testnet is filled in during
+    // Phase 3; until then this map has one entry and behavior is identical to before.
+    const CHAINS = {
+      84532: {
+        chainId: 84532,
+        chainIdHex: '0x14a34',
+        name: 'Base Sepolia',
+        contract: '0x2D16D7F81ac8a13b1A99E74dFDc94eb6107A8243',
+        rpc: 'https://base-sepolia-rpc.publicnode.com', // sepolia.base.org (the public Base RPC) was too flaky — "too many errors"
+        explorer: 'https://sepolia.basescan.org',
+        explorerName: 'BaseScan',
+        faucet: 'https://www.alchemy.com/faucets/base-sepolia',
+        currency: 'ETH',
+        currencyName: 'Ether',
+        currencyDecimals: 18,
+      },
+      5042002: {
+        chainId: 5042002,
+        chainIdHex: '0x4cef52',
+        name: 'Arc Testnet',
+        contract: '0x6b37F3b13CbFB4663C0b7951a885BD646cb6FdC9',
+        rpc: 'https://rpc.testnet.arc.io',
+        explorer: 'https://testnet.arcscan.app',
+        explorerName: 'ArcScan',
+        faucet: 'https://faucet.circle.com',
+        currency: 'USDC',
+        currencyName: 'USD Coin',
+        currencyDecimals: 18,
+      },
     };
+    const DEFAULT_CHAIN_ID = 84532;
+
+    function buildChainParams(cfg) {
+      return {
+        chainId: cfg.chainIdHex,
+        chainName: cfg.name,
+        nativeCurrency: { name: cfg.currencyName, symbol: cfg.currency, decimals: cfg.currencyDecimals },
+        rpcUrls: [cfg.rpc],
+        blockExplorerUrls: [cfg.explorer],
+      };
+    }
+
+    // Active-chain lookup — every contract instance, read, write, stat and price label
+    // derives from these instead of a single hardcoded network. setActiveChain() reassigns
+    // them all together and clears the cached read-only contract so getReader() rebuilds
+    // against the new chain.
+    let activeChain = CHAINS[DEFAULT_CHAIN_ID];
+    let CONTRACT_ADDRESS = activeChain.contract;
+    const PRIVY_APP_ID = 'cms9a0vfy00dq0cl2355bvcjr';
+    let CHAIN_ID = activeChain.chainId;
+    let CHAIN_ID_HEX = activeChain.chainIdHex;
+    let RPC_URL = activeChain.rpc;
+    let EXPLORER_URL = activeChain.explorer;
+    let CHAIN_PARAMS = buildChainParams(activeChain);
+
+    function setActiveChain(chainIdNum) {
+      const cfg = CHAINS[chainIdNum];
+      if (!cfg) return false;
+      activeChain = cfg;
+      CONTRACT_ADDRESS = cfg.contract;
+      CHAIN_ID = cfg.chainId;
+      CHAIN_ID_HEX = cfg.chainIdHex;
+      RPC_URL = cfg.rpc;
+      EXPLORER_URL = cfg.explorer;
+      CHAIN_PARAMS = buildChainParams(cfg);
+      readContract = null;
+      applyChainLabels();
+      return true;
+    }
+
+    // Active chain's native-token symbol — replaces hardcoded "ETH" labels (Phase 2)
+    function CCY() {
+      return activeChain.currency;
+    }
+
+    // Refreshes the handful of static (non-templated) currency labels to match the active
+    // chain — everything else reads CCY() fresh at render time.
+    function applyChainLabels() {
+      const ccy = CCY();
+      const addFunds = document.getElementById('wmAddFundsLabel');
+      if (addFunds) addFunds.textContent = `Add funds — send ${ccy} here`;
+      const sendAmt = document.getElementById('wmSendAmount');
+      if (sendAmt) sendAmt.placeholder = `Amount in ${ccy}`;
+      const sendBtn = document.getElementById('wmSendBtn');
+      if (sendBtn) sendBtn.textContent = `Send ${ccy}`;
+      const chainBadge = document.getElementById('np2ChainBadge');
+      if (chainBadge) chainBadge.textContent = activeChain.name;
+      const chainPill = document.getElementById('np2ChainPill');
+      if (chainPill) chainPill.textContent = activeChain.name;
+      const priceCcy = document.getElementById('np2PriceCcy');
+      if (priceCcy) priceCcy.textContent = `${ccy} / hour`;
+      const statsBarNetwork = document.getElementById('statsBarNetwork');
+      if (statsBarNetwork) statsBarNetwork.textContent = activeChain.name;
+      const earningsLabel = document.getElementById('statEarningsLabel');
+      if (earningsLabel) earningsLabel.textContent = `Your Earnings (${ccy})`;
+      const priceLabel = document.getElementById('machinePriceLabel');
+      if (priceLabel) priceLabel.textContent = `Price per Hour (${ccy})`;
+      const marketplaceSub = document.getElementById('marketplaceIntroSub');
+      if (marketplaceSub) marketplaceSub.textContent = `Connect a wallet on ${activeChain.name} to rent, list, chat and settle. Listings load without a wallet.`;
+      initFooterLinks();
+      renderChainSwitcher();
+    }
+
+    // Populates the header chain-switcher dropdown from CHAINS, with the active chain selected.
+    function renderChainSwitcher() {
+      const sel = document.getElementById('chainSwitcher');
+      if (!sel) return;
+      sel.innerHTML = Object.values(CHAINS).map(c =>
+        `<option value="${c.chainId}"${c.chainId === activeChain.chainId ? ' selected' : ''}>${esc(c.name)}</option>`
+      ).join('');
+    }
+
+    // Manual chain switch from the dropdown. With a wallet connected, this asks the wallet
+    // to switch (adding the chain first if it doesn't know it) — the existing chainChanged
+    // listener reloads the page, which re-detects the new chain on reconnect. Without a
+    // wallet connected yet, it just repoints the read-only reader so public data (landing
+    // stats, marketplace) shows the picked chain immediately.
+    async function onChainSwitcherChange(value) {
+      const chainIdNum = Number(value);
+      if (chainIdNum === activeChain.chainId) return;
+      const cfg = CHAINS[chainIdNum];
+      if (!cfg) return;
+
+      if (!rawProvider) {
+        setActiveChain(chainIdNum);
+        loadLandingStats();
+        loadMarketplace();
+        loadDashboard();
+        return;
+      }
+
+      try {
+        await rawProvider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: cfg.chainIdHex }],
+        });
+      } catch (err) {
+        if (err.code === 4902) {
+          await rawProvider.request({
+            method: 'wallet_addEthereumChain',
+            params: [buildChainParams(cfg)],
+          });
+        } else {
+          showToast(`Couldn't switch to ${cfg.name}`, 'error');
+          renderChainSwitcher();
+        }
+      }
+    }
     const CONTRACT_ABI = [
       "function machineCount() view returns (uint256)",
       "function rentalCount() view returns (uint256)",
@@ -3010,7 +3216,10 @@
     document.addEventListener('DOMContentLoaded', () => {
       initTabs();
       initReveal();
+      initHeroParallax();
+      initCursorSpotlight();
       initFooterLinks();
+      applyChainLabels();
       renderWalletControls();
       restoreSession();
       // Public data doesn't need a wallet — load it immediately
@@ -3026,7 +3235,7 @@
           showToast('TEST VISIBLE', 'success');
           showTxSuccess({
             title: 'Deposit Completed',
-            detail: '0.0001 ETH',
+            detail: `0.0001 ${CCY()}`,
             txHash: '0x655abddbff466c35742d9aef79b54ee497ab9e608626262cda72973b203187bb',
           });
         }, 2000);
@@ -3109,6 +3318,46 @@
       items.forEach(el => observer.observe(el));
     }
 
+    // Subtle mouse-parallax tilt on the hero dashboard mockup — a real depth cue, not just
+    // a flat card. Disabled under reduced-motion and on touch (no persistent cursor there).
+    function initHeroParallax() {
+      const dash = document.getElementById('np2Dash');
+      const hero = document.querySelector('.np2-hero');
+      if (!dash || !hero) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
+
+      hero.addEventListener('mousemove', (e) => {
+        const rect = dash.getBoundingClientRect();
+        const px = (e.clientX - rect.left) / rect.width - 0.5;
+        const py = (e.clientY - rect.top) / rect.height - 0.5;
+        const rotY = px * 6;
+        const rotX = -py * 6;
+        dash.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+      });
+      hero.addEventListener('mouseleave', () => {
+        dash.style.transform = 'rotateX(0deg) rotateY(0deg)';
+      });
+    }
+
+    // Cursor-reactive spotlight — a soft radial glow that follows the mouse across the whole
+    // page, giving every section a sense of reacting to the cursor without any per-section JS.
+    function initCursorSpotlight() {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
+      const spotlight = document.createElement('div');
+      spotlight.id = 'np2Spotlight';
+      document.body.appendChild(spotlight);
+      let raf = null;
+      window.addEventListener('mousemove', (e) => {
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          spotlight.style.transform = `translate(${e.clientX - 300}px, ${e.clientY - 300}px)`;
+          raf = null;
+        });
+      });
+    }
+
     // Staggered entrance for cards rendered from contract data. initReveal() only sees the
     // static markup present at load, so grids re-rendered later (marketplace, my machines,
     // rentals) opt in through this instead — same fade+slide, cascading one card at a time.
@@ -3146,9 +3395,20 @@
     }
 
     function initFooterLinks() {
-      // Links to the contract on BaseScan — the address itself is never shown as page text.
+      // Links to the contract on the active chain's explorer — the address itself is never
+      // shown as page text.
       const link = document.getElementById('footerContractLink');
-      link.href = `${EXPLORER_URL}/address/${CONTRACT_ADDRESS}`;
+      if (link) {
+        link.href = `${EXPLORER_URL}/address/${CONTRACT_ADDRESS}`;
+        link.textContent = `Contract on ${activeChain.explorerName}`;
+      }
+      const rpcLink = document.getElementById('footerRpcLink');
+      if (rpcLink) {
+        rpcLink.href = activeChain.rpc;
+        rpcLink.textContent = `${activeChain.name} RPC`;
+      }
+      const faucetLink = document.getElementById('footerFaucetLink');
+      if (faucetLink) faucetLink.href = activeChain.faucet;
     }
 
     // Count-up animation for the hero stats bar
@@ -3191,7 +3451,7 @@
 
         if (live.length > 0) {
           cheapestWei = live.reduce((min, m) => (m.pricePerHour < min ? m.pricePerHour : min), live[0].pricePerHour);
-          document.getElementById('heroStatCheapest').textContent = `${trimEth(ethers.formatEther(cheapestWei))} ETH`;
+          document.getElementById('heroStatCheapest').textContent = `${trimEth(ethers.formatEther(cheapestWei))} ${CCY()}`;
 
           avgUptimePct = live.reduce((sum, m) => sum + Number(m.uptimeScore), 0) / live.length / 100;
           animateNumber(
@@ -3259,12 +3519,21 @@
         if (ovCheapestEl) ovCheapestEl.textContent = cheapestWei != null ? trimEth(ethers.formatEther(cheapestWei)) : '—';
         if (ovActiveEl) ovActiveEl.textContent = activeRentals.toString();
 
-        // Mini bar chart — decorative, but every bar reflects the one real number we have
-        // (network avg uptime) rather than invented per-period figures.
+        // Mini bar chart — each bar is one real machine's real uptimeScore (up to 10), not
+        // a flat repeated average. Click/hover a bar to see its exact value. Honest empty
+        // state (no bars at all) when the active chain has no machines yet.
         const barsEl = document.getElementById('np2MiniBars');
         if (barsEl) {
-          const h = avgUptimePct != null ? Math.max(6, Math.min(100, avgUptimePct)) : 6;
-          barsEl.innerHTML = Array.from({ length: 10 }, () => `<i style="height:${h}%"></i>`).join('');
+          if (live.length > 0) {
+            const bars = live.slice(0, 10);
+            barsEl.innerHTML = bars.map((m) => {
+              const pct = Number(m.uptimeScore) / 100;
+              const h = Math.max(6, Math.min(100, pct));
+              return `<i style="height:${h}%" data-tip="${pct.toFixed(1)}% uptime" onclick="showToast('${esc(m.cpu)}: ${pct.toFixed(1)}% uptime', 'success')"></i>`;
+            }).join('');
+          } else {
+            barsEl.innerHTML = `<div class="np2-bars-empty">No data yet</div>`;
+          }
         }
 
         // Recent activity — derived from real machine/rental state: listings (createdAt),
@@ -3337,7 +3606,7 @@
           : `No live machines yet — uptime has nothing to average.`;
       } else if (kind === 'cheapest') {
         labelEl.textContent = 'Cheapest / hour';
-        valEl.textContent = np2Cache.cheapestWei != null ? `${trimEth(ethers.formatEther(np2Cache.cheapestWei))} ETH` : '—';
+        valEl.textContent = np2Cache.cheapestWei != null ? `${trimEth(ethers.formatEther(np2Cache.cheapestWei))} ${CCY()}` : '—';
         bodyEl.innerHTML = np2Cache.cheapestWei != null
           ? `The lowest <strong>pricePerHour</strong> among all currently listed machines. Set directly by the provider, paid per second.`
           : `No machines listed yet — nothing to compare.`;
@@ -3531,15 +3800,21 @@
       }
     }
 
-    // Make sure the wallet is on Base Sepolia — the contract only lives there
-    async function ensureBaseSepolia(rawProv) {
+    // Detects the wallet's current chain and loads that chain's config if it's one of the
+    // supported chains. If the wallet is on an unsupported chain, prompts it to switch to
+    // the default (Base Sepolia).
+    async function ensureSupportedChain(rawProv) {
       const current = await rawProv.request({ method: 'eth_chainId' });
-      if (current === CHAIN_ID_HEX) return true;
+      const currentNum = parseInt(current, 16);
+      if (CHAINS[currentNum]) {
+        setActiveChain(currentNum);
+        return true;
+      }
 
       try {
         await rawProv.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: CHAIN_ID_HEX }],
+          params: [{ chainId: activeChain.chainIdHex }],
         });
         return true;
       } catch (err) {
@@ -3551,7 +3826,7 @@
           });
           return true;
         }
-        showToast('Please switch to Base Sepolia', 'error');
+        showToast(`Please switch to ${activeChain.name} or another supported chain`, 'error');
         return false;
       }
     }
@@ -3597,7 +3872,7 @@
     async function connectWithProvider(rawProv, walletName) {
       try {
         await rawProv.request({ method: 'eth_requestAccounts' });
-        if (!(await ensureBaseSepolia(rawProv))) return;
+        if (!(await ensureSupportedChain(rawProv))) return;
 
         provider = new ethers.BrowserProvider(rawProv);
         signer = await provider.getSigner();
@@ -3670,8 +3945,8 @@
       try {
         const bal = await provider.getBalance(userAddress);
         const eth = parseFloat(ethers.formatEther(bal));
-        setValueWithPulse(chip, eth.toFixed(4) + ' ETH', eth);
-      } catch (e) { chip.textContent = '0 ETH'; }
+        setValueWithPulse(chip, eth.toFixed(4) + ' ' + CCY(), eth);
+      } catch (e) { chip.textContent = '0 ' + CCY(); }
     }
     function openWalletModal() {
       const m = document.getElementById('walletModal');
@@ -3707,7 +3982,7 @@
           showToast('No MetaMask account was connected', 'error');
           return;
         }
-        if (!(await ensureBaseSepolia())) return;
+        if (!(await ensureSupportedChain(window.ethereum))) return;
 
         const metamaskProvider = new ethers.BrowserProvider(window.ethereum);
         const metamaskSigner = await metamaskProvider.getSigner(accounts[0]);
@@ -3719,8 +3994,8 @@
 
         document.getElementById('wmDepositAmount').value = '';
         document.getElementById('walletModal').classList.remove('active');
-        showToast(`Deposited ${amount} ETH`, 'success');
-        showTxSuccess({ title: 'Deposit Completed', detail: `${amount} ETH`, txHash: tx.hash });
+        showToast(`Deposited ${amount} ${CCY()}`, 'success');
+        showTxSuccess({ title: 'Deposit Completed', detail: `${amount} ${CCY()}`, txHash: tx.hash });
         // The RPC node's balance read can lag a beat behind the confirmed tx, so back it up
         // with retries at 3s and 6s instead of trusting the first read.
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
@@ -3744,7 +4019,7 @@
       try {
         const bal = await provider.getBalance(userAddress);
         const eth = parseFloat(ethers.formatEther(bal));
-        setValueWithPulse(el, eth.toFixed(5) + ' ETH', eth);
+        setValueWithPulse(el, eth.toFixed(5) + ' ' + CCY(), eth);
       } catch(e){}
     }
     function copyWalletAddress() {
@@ -3764,8 +4039,8 @@
 
         showToast('Confirming transaction...', 'warning');
         const receipt = await tx.wait();
-        showToast(`Sent ${amount} ETH`, 'success');
-        showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ETH`, txHash: receipt.hash });
+        showToast(`Sent ${amount} ${CCY()}`, 'success');
+        showTxSuccess({ title: 'Transfer Completed', detail: `${amount} ${CCY()}`, txHash: receipt.hash });
         document.getElementById('wmSendTo').value = '';
         document.getElementById('wmSendAmount').value = '';
         refreshAfterTx([refreshBalance, refreshWalletModalBalance]);
@@ -4466,7 +4741,7 @@
         grid.innerHTML = emptyState({
           art: 'search',
           title: 'Could not reach the network',
-          body: 'The Base Sepolia RPC did not respond. Check your connection and try again.',
+          body: `The ${activeChain.name} RPC did not respond. Check your connection and try again.`,
           action: '<button class="btn btn-secondary" onclick="loadMarketplace()">Retry</button>',
         });
       }
@@ -4540,7 +4815,7 @@
             </div>` : ''}
           <div class="machine-footer">
             <div>
-              <div class="price">${ethers.formatEther(m.pricePerHour)} <span>ETH/hr</span></div>
+              <div class="price">${ethers.formatEther(m.pricePerHour)} <span>${CCY()}/hr</span></div>
               <div class="uptime-badge">${(Number(m.uptimeScore) / 100).toFixed(1)}% uptime</div>
             </div>
             ${showRentBtn
@@ -4604,7 +4879,7 @@
 
         <div class="detail-grid">
           <div class="spec-row"><span class="spec-label">Machine ID</span><span class="spec-value">#${m.id}</span></div>
-          <div class="spec-row"><span class="spec-label">Price</span><span class="spec-value">${ethers.formatEther(m.pricePerHour)} ETH/hr</span></div>
+          <div class="spec-row"><span class="spec-label">Price</span><span class="spec-value">${ethers.formatEther(m.pricePerHour)} ${CCY()}/hr</span></div>
           <div class="spec-row"><span class="spec-label">CPU</span><span class="spec-value">${esc(m.cpu)}</span></div>
           <div class="spec-row"><span class="spec-label">RAM</span><span class="spec-value">${esc(m.ram)}</span></div>
           <div class="spec-row"><span class="spec-label">Storage</span><span class="spec-value">${esc(m.storage_)}</span></div>
@@ -4627,7 +4902,7 @@
 
         <div class="spec-row" style="margin-bottom: 1.25rem;">
           <span class="spec-label">Total earned</span>
-          <span class="spec-value">${ethers.formatEther(m.totalEarnings)} ETH</span>
+          <span class="spec-value">${ethers.formatEther(m.totalEarnings)} ${CCY()}</span>
         </div>
 
         ${isMine
@@ -4690,7 +4965,7 @@
         grid.innerHTML = emptyState({
           art: 'wallet',
           title: 'Connect to see your machines',
-          body: 'Sign in with email or connect a wallet on Base Sepolia to list machines and track earnings.',
+          body: `Sign in with email or connect a wallet on ${activeChain.name} to list machines and track earnings.`,
           action: '<button class="btn btn-primary" onclick="connectWallet()">Connect Wallet</button>',
         });
         return;
@@ -4749,8 +5024,8 @@
         if (!v.trim()) return 'Price is required';
         const n = Number(v);
         if (!Number.isFinite(n) || n <= 0) return 'Enter a price greater than 0';
-        if (n < 0.0001) return 'Minimum price is 0.0001 ETH/hr';
-        if (n > 10) return 'That looks too high — max 10 ETH/hr';
+        if (n < 0.0001) return `Minimum price is 0.0001 ${CCY()}/hr`;
+        if (n > 10) return `That looks too high — max 10 ${CCY()}/hr`;
         return null;
       },
       machineEndpoint: v => {
@@ -4824,7 +5099,7 @@
           </div>
           <div class="machine-footer">
             <div>
-              <div class="price">${ethers.formatEther(preview.pricePerHour)} <span>ETH/hr</span></div>
+              <div class="price">${ethers.formatEther(preview.pricePerHour)} <span>${CCY()}/hr</span></div>
               <div class="uptime-badge">100.0% uptime</div>
             </div>
             <button class="btn btn-primary" disabled>Rent</button>
@@ -4906,7 +5181,7 @@
         showToast(`Machine registered! (#${machineId})`, 'success');
         showTxSuccess({
           title: 'Machine Registered',
-          detail: `Machine #${machineId} · ${machineFieldValue('machinePrice').trim()} ETH/hr`,
+          detail: `Machine #${machineId} · ${machineFieldValue('machinePrice').trim()} ${CCY()}/hr`,
           txHash: tx.hash,
         });
 
@@ -5063,7 +5338,7 @@
           </div>
           <div class="spec-row" style="margin-top: 0.5rem;">
             <span class="spec-label">Price</span>
-            <span class="spec-value">${ethers.formatEther(currentRentalMachine.pricePerHour)} ETH/hr</span>
+            <span class="spec-value">${ethers.formatEther(currentRentalMachine.pricePerHour)} ${CCY()}/hr</span>
           </div>
         </div>
       `;
@@ -5075,7 +5350,7 @@
       if (!currentRentalMachine) return;
       const hours = parseInt(document.getElementById('rentalHours').value) || 1;
       const total = ethers.formatEther(currentRentalMachine.pricePerHour * BigInt(hours));
-      document.getElementById('rentalTotal').textContent = `${total} ETH`;
+      document.getElementById('rentalTotal').textContent = `${total} ${CCY()}`;
     }
 
     async function submitRental(event) {
@@ -5100,7 +5375,7 @@
         closeModal('rentalModal');
         showTxSuccess({
           title: 'Rental Confirmed',
-          detail: `${ethers.formatEther(deposit)} ETH · ${hours}h`,
+          detail: `${ethers.formatEther(deposit)} ${CCY()} · ${hours}h`,
           txHash: tx.hash,
         });
         document.getElementById('rentalMessage').value = '';
@@ -5161,7 +5436,7 @@
               </div>
               <div class="spec-row" style="margin-top: 0.5rem;">
                 <span class="spec-label">Deposit</span>
-                <span class="spec-value">${ethers.formatEther(rental.deposit)} ETH</span>
+                <span class="spec-value">${ethers.formatEther(rental.deposit)} ${CCY()}</span>
               </div>
               <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
                 <button class="btn btn-success" onclick="event.stopPropagation(); acceptRental(${rental.id})">Accept</button>
@@ -5209,7 +5484,7 @@
               ` : ''}
               <div class="spec-row" style="margin-top: 0.5rem;">
                 <span class="spec-label">Deposit Remaining</span>
-                <span class="spec-value">${ethers.formatEther(rental.deposit)} ETH</span>
+                <span class="spec-value">${ethers.formatEther(rental.deposit)} ${CCY()}</span>
               </div>
               <div class="form-hint" style="margin-top: 0.75rem;">Click for details, uptime and chat &rarr;</div>
             </div>
@@ -5368,7 +5643,7 @@
         document.getElementById('chatHeader').innerHTML = `
           <strong>${esc(machine.cpu)}</strong>
           <span style="color: var(--text-muted); margin-left: 0.5rem;">
-            Rental #${rentalId} · ${ethers.formatEther(machine.pricePerHour)} ETH/hr · ${totalHours}h
+            Rental #${rentalId} · ${ethers.formatEther(machine.pricePerHour)} ${CCY()}/hr · ${totalHours}h
           </span>
         `;
 
@@ -5387,7 +5662,7 @@
               <div class="spec-row"><span class="spec-label">RAM</span><span class="spec-value">${esc(machine.ram)}</span></div>
               <div class="spec-row"><span class="spec-label">Storage</span><span class="spec-value">${esc(machine.storage_)}</span></div>
               <div class="spec-row"><span class="spec-label">OS</span><span class="spec-value">${esc(machine.os)}</span></div>
-              <div class="spec-row"><span class="spec-label">Rate</span><span class="spec-value">${ethers.formatEther(machine.pricePerHour)} ETH/hr</span></div>
+              <div class="spec-row"><span class="spec-label">Rate</span><span class="spec-value">${ethers.formatEther(machine.pricePerHour)} ${CCY()}/hr</span></div>
               <div class="spec-row">
                 <span class="spec-label">${isProvider ? 'Renter' : 'Provider'}</span>
                 <span class="spec-value detail-addr">${shortAddr(isProvider ? rental.renter : machine.owner)}</span>
@@ -5408,11 +5683,11 @@
               </div>
               <div class="metric">
                 <div class="metric-value" id="metricEscrowLeft">${trimEth(ethers.formatEther(rental.deposit))}</div>
-                <div class="metric-label">Escrow left (ETH)</div>
+                <div class="metric-label">Escrow left (${CCY()})</div>
               </div>
               <div class="metric">
                 <div class="metric-value" id="metricPaidOut">${trimEth(ethers.formatEther(paid))}</div>
-                <div class="metric-label">Paid out (ETH)</div>
+                <div class="metric-label">Paid out (${CCY()})</div>
               </div>
             </div>
             ${status === 1 ? `<div class="form-hint" style="margin-top:0.35rem">Updates live. Syncs onchain every 15s.</div>` : ''}
@@ -5654,8 +5929,8 @@
           const earningsEth = parseFloat(ethers.formatEther(stats.totalEarnings));
           const pendingEth = parseFloat(ethers.formatEther(pending));
           setValueWithPulse(document.getElementById('yourMachineCount'), stats.totalMachines.toString(), Number(stats.totalMachines));
-          setValueWithPulse(document.getElementById('yourTotalEarnings'), ethers.formatEther(stats.totalEarnings) + ' ETH', earningsEth);
-          setValueWithPulse(document.getElementById('yourPendingWithdrawal'), ethers.formatEther(pending) + ' ETH', pendingEth);
+          setValueWithPulse(document.getElementById('yourTotalEarnings'), ethers.formatEther(stats.totalEarnings) + ' ' + CCY(), earningsEth);
+          setValueWithPulse(document.getElementById('yourPendingWithdrawal'), ethers.formatEther(pending) + ' ' + CCY(), pendingEth);
           setValueWithPulse(document.getElementById('statEarnings'), ethers.formatEther(stats.totalEarnings), earningsEth);
         }
 
@@ -5685,7 +5960,7 @@
           at: Number(m.createdAt),
           kind: 'listed',
           icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
-          text: `<strong>${esc(m.cpu)}</strong> listed at ${ethers.formatEther(m.pricePerHour)} ETH/hr`,
+          text: `<strong>${esc(m.cpu)}</strong> listed at ${ethers.formatEther(m.pricePerHour)} ${CCY()}/hr`,
           meta: `Machine #${m.id} · ${shortAddr(m.owner)}`,
         });
       }
@@ -5712,7 +5987,7 @@
             at: Number(r.lastHealthCheck || r.startTime),
             kind: 'paid',
             icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5a2.5 2.5 0 0 1 2.5-1h.5a2 2 0 1 1 0 4h-1a2 2 0 1 0 0 4h.5a2.5 2.5 0 0 0 2.5-1"/></svg>',
-            text: `<strong>${trimEth(ethers.formatEther(paid))} ETH</strong> released for ${formatDuration(Number(r.secondsPaid))} verified`,
+            text: `<strong>${trimEth(ethers.formatEther(paid))} ${CCY()}</strong> released for ${formatDuration(Number(r.secondsPaid))} verified`,
             meta: `Rental #${r.id} · ${status === 2 ? 'settled' : 'streaming'}`,
           });
         }
@@ -5772,7 +6047,7 @@
                 · <span class="rental-status status-${STATUS_CLASSES[status]}" style="font-size:0.7rem">${STATUS_LABELS[status]}</span>
               </div>
               <div class="activity-meta">
-                Rental #${r.id} · started ${startedAt} · ${trimEth(ethers.formatEther(paid))} ETH paid so far
+                Rental #${r.id} · started ${startedAt} · ${trimEth(ethers.formatEther(paid))} ${CCY()} paid so far
               </div>
             </div>
           </div>
@@ -5794,8 +6069,8 @@
         const tx = await txWithGas(contract.withdrawEarnings);
         showToast('Confirming transaction...', 'warning');
         await tx.wait();
-        showToast(`Withdrew ${ethers.formatEther(pending)} ETH`, 'success');
-        showTxSuccess({ title: 'Withdrawal Completed', detail: `${ethers.formatEther(pending)} ETH`, txHash: tx.hash });
+        showToast(`Withdrew ${ethers.formatEther(pending)} ${CCY()}`, 'success');
+        showTxSuccess({ title: 'Withdrawal Completed', detail: `${ethers.formatEther(pending)} ${CCY()}`, txHash: tx.hash });
         await refreshAfterTx([loadDashboard, refreshBalance]);
       } catch (err) {
         console.error(err);

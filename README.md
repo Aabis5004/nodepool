@@ -1,10 +1,13 @@
 # NodePool
 
-Rent out your idle computer, or rent someone else's. NodePool turns a computer that's just sitting there into a small server anyone can rent by the hour, and pays the owner for every hour it's online. No company in the middle. A smart contract on Base Sepolia holds the money, checks the machine is online, and pays out automatically.
+Rent out your idle computer, or rent someone else's. NodePool turns a computer that's just sitting there into a small server anyone can rent by the hour, and pays the owner for every hour it's online. No company in the middle. A smart contract holds the money, checks the machine is online, and pays out automatically.
 
 Live app: nodepool.vercel.app
 
-Contract (Base Sepolia, chain 84532): 0x54436C58A3671B24E9004858a55889C44585E7E5
+NodePool is multi-chain — each chain is a separate, independent marketplace (its own contract, machines and rentals). Switch chains from the dropdown in the app header.
+
+- Base Sepolia (ETH), chain 84532: 0x2D16D7F81ac8a13b1A99E74dFDc94eb6107A8243
+- Arc Testnet (USDC), chain 5042002: 0x6b37F3b13CbFB4663C0b7951a885BD646cb6FdC9
 
 ## What this is
 
