@@ -65,7 +65,16 @@ function resolveChain() {
   return { ...CHAINS[key], fromArg };
 }
 
+// Optional machine id to pin: `node agent.js arc 3` (third CLI arg, after the chain) or
+// MACHINE_ID=3 in env. CLI arg wins over env, same precedence as chain selection above. When
+// unset, behavior is unchanged: the agent picks the lowest authorized id (see main()).
+function resolveRequestedMachineId() {
+  const raw = (process.argv[3] || process.env.MACHINE_ID || '').trim();
+  return raw || null;
+}
+
 const ACTIVE_CHAIN = resolveChain();
+const REQUESTED_MACHINE_ID = resolveRequestedMachineId();
 // An explicit `node agent.js base|arc` is an unambiguous choice — it wins over a
 // CONTRACT_ADDRESS/RPC_URL left in .env from a different chain. Without a CLI arg, those env
 // vars still override (legacy single-chain .env setups keep working exactly as before).
@@ -651,33 +660,55 @@ async function main() {
   startHealthServer(HEALTH_PORT);
   console.log('Health server is running — keep this process alive so uptime checks can reach it.');
 
-  let machineId = loadMachineId();
+  let machineId = null;
 
-  // Verify the cached id is still authorized for this device key. It won't be after a contract
-  // redeploy, if machine-id.json was hand-edited, or if the owner re-pointed reporterOf
-  // elsewhere — blindly trusting it means heartbeating a machine that will just reject us.
-  if (machineId && !(await isAuthorizedForMachine(contract, deviceWallet.address, machineId))) {
-    console.log(`machine-id.json points at Machine ${machineId}, but this device is not authorized for it on ${CONTRACT_ADDRESS} — ignoring it.`);
-    machineId = null;
-  }
+  if (REQUESTED_MACHINE_ID) {
+    // A pinned id is explicit intent — check it directly rather than going through the cache
+    // or the lowest-id fallback below, and fail loudly (rather than silently falling back) if
+    // this device isn't authorized for it.
+    if (await isAuthorizedForMachine(contract, deviceWallet.address, REQUESTED_MACHINE_ID)) {
+      machineId = REQUESTED_MACHINE_ID;
+      console.log(`Serving Machine ${machineId} (requested).`);
+      saveMachineId(machineId);
+    } else {
+      const authorized = await findAuthorizedMachineIds(contract, deviceWallet.address);
+      console.error(`This device is not authorized for Machine ${REQUESTED_MACHINE_ID} on ${CONTRACT_ADDRESS}.`);
+      console.error(
+        authorized.length > 0
+          ? `  It IS authorized for: [${authorized.join(', ')}].`
+          : '  It is not authorized for any machine on this contract yet.'
+      );
+      process.exit(1);
+    }
+  } else {
+    machineId = loadMachineId();
 
-  if (!machineId) {
-    const authorized = await findAuthorizedMachineIds(contract, deviceWallet.address);
-    if (authorized.length > 0) {
-      machineId = authorized[0]; // lowest id
-      console.log(`Found authorization for Machine ${machineId}.`);
-      if (authorized.length > 1) {
-        console.log(`  Note: this device is authorized for ${authorized.length} machines: [${authorized.join(', ')}]. Using the lowest id.`);
+    // Verify the cached id is still authorized for this device key. It won't be after a contract
+    // redeploy, if machine-id.json was hand-edited, or if the owner re-pointed reporterOf
+    // elsewhere — blindly trusting it means heartbeating a machine that will just reject us.
+    if (machineId && !(await isAuthorizedForMachine(contract, deviceWallet.address, machineId))) {
+      console.log(`machine-id.json points at Machine ${machineId}, but this device is not authorized for it on ${CONTRACT_ADDRESS} — ignoring it.`);
+      machineId = null;
+    }
+
+    if (!machineId) {
+      const authorized = await findAuthorizedMachineIds(contract, deviceWallet.address);
+      if (authorized.length > 0) {
+        machineId = authorized[0]; // lowest id
+        console.log(`Found authorization for Machine ${machineId}.`);
+        if (authorized.length > 1) {
+          console.log(`  Note: this device is authorized for ${authorized.length} machines: [${authorized.join(', ')}]. Using the lowest id.`);
+        }
+        saveMachineId(machineId);
       }
+    }
+
+    if (!machineId) {
+      const authorized = await waitForAuthorization(contract, deviceWallet.address);
+      machineId = authorized[0];
+      console.log(`Authorized for Machine ${machineId}.`);
       saveMachineId(machineId);
     }
-  }
-
-  if (!machineId) {
-    const authorized = await waitForAuthorization(contract, deviceWallet.address);
-    machineId = authorized[0];
-    console.log(`Authorized for Machine ${machineId}.`);
-    saveMachineId(machineId);
   }
 
   const startup = await setMachineOnlineStatus(contract, machineId, true);
