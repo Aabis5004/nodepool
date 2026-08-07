@@ -174,20 +174,6 @@ A renter's SSH login is encrypted so only their wallet can read it. Their browse
 
 The renter runs inside a container with capped memory, CPU, and processes, and no access to your real files. They get a full shell in the sandbox and nothing outside it.
 
-## Deploy your own contract
-
-Only needed if you want your own separate marketplace.
-
-    npm install
-    npx hardhat compile
-
-Deploy to whichever chain you want:
-
-    npx hardhat run scripts/deploy.js --network baseSepolia
-    npx hardhat run scripts/deploy.js --network arc
-
-The deployer wallet needs that chain's gas: ETH on Base Sepolia, testnet USDC on Arc (faucet https://faucet.circle.com). After deploying, put the new address into the chain config in frontend/index.html and agent/agent.js, and into deployments.json, so everything points at the same contract. A fresh deploy starts the marketplace empty.
-
 ## Networks and tools
 
 - Base Sepolia, chain ID 84532, gas token ETH
