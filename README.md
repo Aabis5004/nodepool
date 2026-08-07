@@ -1,134 +1,221 @@
-# NodePool
+# 🍎 Kashmir Apples - Direct from Orchards
 
-Rent out your idle computer, or rent someone else's. NodePool turns a computer that's just sitting there into a small server anyone can rent by the hour, and pays the owner for every hour it's online. No company in the middle. A smart contract holds the money, checks the machine is online, and pays out automatically.
+A digital marketplace connecting Kashmir apple growers directly with buyers across India. No middlemen, fair prices, fresh produce.
 
-Live app: nodepool.vercel.app
+![Kashmir Apples](https://via.placeholder.com/1200x600/1c1917/dc2626?text=Kashmir+Apples)
 
-NodePool is multi-chain — each chain is a separate, independent marketplace (its own contract, machines and rentals). Switch chains from the dropdown in the app header.
+## 🎯 Vision
 
-- Base Sepolia (ETH), chain 84532: 0x2D16D7F81ac8a13b1A99E74dFDc94eb6107A8243
-- Arc Testnet (USDC), chain 5042002: 0x6b37F3b13CbFB4663C0b7951a885BD646cb6FdC9
+Empower Kashmiri apple farmers to sell directly to buyers across India, eliminating middlemen and ensuring fair prices. Growers can earn 35-50% more through direct trade.
 
-## What this is
+## ✨ Features
 
-If you have a computer that's idle, list it and earn. If you need a server, rent one and get real SSH access, like a cheap VPS. Only the renter's wallet can unlock the login details, and the renter is locked in a sandbox that can't touch the owner's real files.
+- **For Growers:**
+  - Free registration and listing
+  - Set your own prices
+  - Direct WhatsApp/Phone contact with buyers
+  - Dashboard to track views and inquiries
+  - Verified grower badge
 
-Two roles:
+- **For Buyers:**
+  - Browse verified grower listings
+  - Real-time market prices
+  - Filter by variety, location, price
+  - Direct contact with growers
+  - Quality ratings and reviews
 
-- Provider: runs the agent on their machine and lists it. Earns per hour it's online.
-- Renter: rents a machine from the website and gets SSH access. Pays per hour.
+## 🛠️ Tech Stack
 
-The contract holds the deposit in escrow, pays the provider hour by hour as the machine proves it's online, and refunds the rest when the rental ends.
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 14, React, TypeScript |
+| Styling | Tailwind CSS |
+| Backend | Next.js API Routes |
+| Database | PostgreSQL (Supabase) |
+| Auth | Supabase Auth (Phone OTP) |
+| File Storage | Cloudinary |
+| Deployment | Vercel / Railway |
 
-## Part 1: Rent a machine (renter)
+## 🚀 Quick Start
 
-You only need a wallet and an SSH client. SSH is already on Mac and Linux. On Windows, use PowerShell (it has ssh built in) or WSL.
+### Prerequisites
 
-1. Open nodepool.vercel.app and connect your wallet. You need a little Base Sepolia ETH for the deposit and gas. Get it free at https://www.alchemy.com/faucets/base-sepolia
-2. Go to the Marketplace tab and pick a machine that shows Online.
-3. Choose how many hours and confirm. Your wallet signs a free message first (this makes your decryption key), then confirms the payment transaction.
-4. Wait for the provider to accept. Their agent builds your container, usually within a minute.
-5. Go to My Rentals, open the rental, and click Show SSH Access. Sign the message. The app shows your host, port, username, password, and a copy-ready command.
-6. In your terminal, run the command it gives you:
+- Node.js 18+ 
+- npm or yarn
+- Supabase account (free tier works)
+- Cloudinary account (free tier works)
 
-   ssh -p PORT renter@HOST
+### 1. Clone the repository
 
-   Paste the password when asked. You now have a shell on the rented machine.
+```bash
+git clone https://github.com/yourusername/kashmir-apples.git
+cd kashmir-apples
+```
 
-When the rental ends, runs out, or is cancelled, the container is destroyed and your access is gone. To keep using it, rent again.
+### 2. Install dependencies
 
-## Part 2: Rent out your computer (provider)
+```bash
+npm install
+```
 
-Full setup from a clean machine. Do every step in order. Commands are for Linux or WSL on Windows.
+### 3. Set up environment variables
 
-### Step 1: Install Git and Node
+```bash
+cp .env.example .env.local
+```
 
-Check what you have:
+Edit `.env.local` with your credentials:
 
-    git --version
-    node --version
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+DATABASE_URL=postgresql://...
+```
 
-If Git is missing:
+### 4. Set up the database
 
-    sudo apt update
-    sudo apt install -y git
+```bash
+# Generate Prisma client
+npm run db:generate
 
-If Node is missing, install Node 20 LTS:
+# Push schema to database
+npm run db:push
 
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt install -y nodejs
+# (Optional) Seed with sample data
+npm run db:seed
+```
 
-### Step 2: Download NodePool
+### 5. Run the development server
 
-    git clone https://github.com/Aabis5004/nodepool
-    cd nodepool
+```bash
+npm run dev
+```
 
-### Step 3: Install Docker
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Docker runs the isolated container each renter logs into. The agent starts and stops these for you automatically.
+## 📁 Project Structure
 
-    sudo apt update
-    sudo apt install -y docker.io
-    sudo service docker start
-    sudo usermod -aG docker $USER
+```
+kashmir-apples/
+├── src/
+│   ├── app/                 # Next.js App Router pages
+│   │   ├── page.tsx         # Home page
+│   │   ├── marketplace/     # Marketplace pages
+│   │   ├── auth/            # Authentication pages
+│   │   ├── dashboard/       # User dashboards
+│   │   └── api/             # API routes
+│   ├── components/          # React components
+│   │   ├── home/            # Home page sections
+│   │   ├── layout/          # Layout components
+│   │   └── ui/              # Reusable UI components
+│   └── lib/                 # Utilities and configs
+│       ├── supabase.ts      # Supabase client
+│       └── types.ts         # TypeScript types
+├── database/
+│   └── schema.prisma        # Database schema
+├── public/                  # Static assets
+└── package.json
+```
 
-Log out and back in (or reopen your terminal), then confirm:
+## 🗄️ Database Setup (Supabase)
 
-    docker ps
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Go to SQL Editor and run the schema from `database/schema.sql`
+3. Enable Phone Auth in Authentication > Providers
+4. Copy your API keys to `.env.local`
 
-If that prints a table header instead of an error, Docker is ready. (On Mac/Windows: install Docker Desktop and leave it running.)
+## 📱 SMS/OTP Setup
 
-### Step 4: Install ngrok and connect your account
+### Option 1: MSG91 (Recommended for India)
+1. Sign up at [msg91.com](https://msg91.com)
+2. Create an OTP template
+3. Add credentials to `.env.local`
 
-ngrok gives your container a public address so renters can connect. The agent runs it for you automatically; you set it up once.
+### Option 2: Twilio
+1. Sign up at [twilio.com](https://twilio.com)
+2. Get a phone number
+3. Add credentials to `.env.local`
 
-Install it:
+## 🖼️ Image Upload Setup (Cloudinary)
 
-    curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-    echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-    sudo apt update
-    sudo apt install -y ngrok
+1. Sign up at [cloudinary.com](https://cloudinary.com)
+2. Get your cloud name and API keys
+3. Add to `.env.local`
 
-Then sign up at https://ngrok.com, copy your authtoken from the dashboard, and run:
+## 🚢 Deployment
 
-    ngrok config add-authtoken PASTE_YOUR_TOKEN_HERE
+### Vercel (Recommended)
 
-### Step 5: Add a card to ngrok (required, easy to miss)
+1. Push your code to GitHub
+2. Connect repository to Vercel
+3. Add environment variables
+4. Deploy!
 
-ngrok will not open the connection SSH needs unless a payment card is on file, even on the free tier. Skip this and the first rental fails with an error containing ERR_NGROK_8013. In the ngrok dashboard, go to Billing and add a card. The free tier is not charged. Do this once.
+```bash
+npm run build  # Test build locally first
+```
 
-### Step 6: Set up the agent
+### Railway
 
-    cd agent
-    npm install
-    cp .env.example .env
+1. Create a new project on Railway
+2. Connect GitHub repository
+3. Add environment variables
+4. Railway auto-deploys on push
 
-The .env has no private key and nothing secret. The defaults already point at the live contract. The agent makes its own key on first run.
+## 📊 Admin Panel
 
-### Step 7: Run the agent
+Access the admin panel at `/admin` (requires admin user type).
 
-Make sure Docker is running (docker ps), then:
+Features:
+- Verify grower profiles
+- Manage listings
+- View analytics
+- Update market prices
 
-    npm start
+## 🔐 Security
 
-It prints a device address like 0xAB61...6602 and says it is not authorized yet. Copy that address and leave the agent running.
+- Phone OTP authentication
+- Row Level Security (RLS) on Supabase
+- Rate limiting on API routes
+- Input validation with Zod
 
-### Step 8: Register your machine
+## 📈 Future Roadmap
 
-On nodepool.vercel.app, connect your wallet, go to My Machines, click Register Machine. Fill in specs and price, paste the device address from Step 7 into the Device Address field, and submit. This lists and authorizes in one transaction. Within about ten seconds the agent prints "Authorized for Machine N".
+- [ ] Mobile app (React Native)
+- [ ] Payment escrow system
+- [ ] Logistics partner integration
+- [ ] AI-powered price predictions
+- [ ] Multi-language support (Hindi, Urdu, Kashmiri)
 
-### Step 9: Fund the device wallet
+## 🤝 Contributing
 
-The device address needs a small amount of Base Sepolia ETH for gas. Send about 0.002 ETH to it. Faucet: https://www.alchemy.com/faucets/base-sepolia
+Contributions are welcome! Please read our contributing guidelines.
 
-### Step 10: Confirm you're online
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-Within a minute your machine shows Online and is rentable. If it stays offline, check the agent terminal; the usual cause is the device wallet having no ETH (Step 9). Leave the agent running. When someone rents, the agent starts the container and tunnel automatically. You never run Docker or ngrok commands yourself.
+## 📄 License
 
-## Security
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-The agent never uses your real wallet. It makes its own low-power device key that can only report status, report uptime, and write encrypted login details for the one machine you authorized. It cannot withdraw earnings, delist, or move money. Those need your real wallet. If a device key is lost, re-authorize a new one from the site in one click.
+## 📞 Support
 
-A renter's SSH login is encrypted so only their wallet can read it. Their browser makes an encryption key from a wallet signature, and the agent encrypts the login to it. The ciphertext is public on-chain but useless to anyone but the renting wallet. Works with any wallet.
+- Email: support@kashmirapples.in
+- WhatsApp: +91 194 123 4567
+- Twitter: [@KashmirApples](https://twitter.com/KashmirApples)
 
-The renter runs in a container with capped memory, CPU, and processes, and no access to your real files.
+## 🙏 Acknowledgments
+
+- Kashmiri apple growers who inspired this project
+- The open-source community
+- Supabase, Vercel, and Cloudinary teams
+
+---
+
+Made with ❤️ for Kashmiri farmers
+
+**[www.kashmirapples.in](https://kashmirapples.in)**
